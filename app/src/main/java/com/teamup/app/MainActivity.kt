@@ -1,6 +1,7 @@
 package com.teamup.app
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
+
+import com.google.firebase.database.FirebaseDatabase
 
 /**
  * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
@@ -16,6 +21,13 @@ import androidx.compose.ui.unit.dp
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
+
+       FirebaseDatabase.getInstance().setPersistenceEnabled(true)
+
+        // Référence vers la base de données
+        val database = FirebaseDatabase.getInstance()
+
         setContent {
             MaterialTheme {
                 MainScreen()
