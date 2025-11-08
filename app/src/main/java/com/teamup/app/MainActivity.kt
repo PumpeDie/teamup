@@ -10,10 +10,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 
 import com.google.firebase.database.FirebaseDatabase
+import com.teamup.app.ui.screens.home.MainScreen
+import com.teamup.app.ui.screens.login.LoginScreen
 
 /**
  * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
@@ -29,69 +35,33 @@ class MainActivity : ComponentActivity() {
         val database = FirebaseDatabase.getInstance()
 
         setContent {
-            MaterialTheme {
-                MainScreen()
-            }
+            AppNavigation()
         }
     }
 }
 
-/**
- * Écran principal de l'app
- */
+
+
 @Composable
-fun MainScreen() {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+fun AppNavigation() {
+    val navController = rememberNavController()
+
+    // Détermine la page de démarrage selon la session Firebase
+    val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
+        "home"
+    } else {
+        "login"
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "Bienvenue sur TeamUp!",
-                style = MaterialTheme.typography.headlineLarge
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "MVP - Développez nos 3 fonctionnalités",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Boutons pour les 3 fonctionnalités
-            Button(
-                onClick = { /* TODO: Navigation vers Groupes */ },
-                modifier = Modifier.fillMaxWidth(0.7f)
-            ) {
-                Text("📋 Groupes")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = { /* TODO: Navigation vers Tâches */ },
-                modifier = Modifier.fillMaxWidth(0.7f)
-            ) {
-                Text("✓ Tâches")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = { /* TODO: Navigation vers Chat */ },
-                modifier = Modifier.fillMaxWidth(0.7f)
-            ) {
-                Text("💬 Chat")
-            }
+        composable("login") {
+            LoginScreen(navController)
+        }
+        composable("home") {
+            MainScreen(navController)
         }
     }
 }
