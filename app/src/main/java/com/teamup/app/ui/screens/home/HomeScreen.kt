@@ -60,7 +60,7 @@ fun MainScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(12.dp))
 
             Button(
-                onClick = { /* TODO: Navigation vers Tâches */ },
+                onClick = { navController.navigate("tasks") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
                 Text("✓ Tâches")
