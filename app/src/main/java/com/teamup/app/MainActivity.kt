@@ -20,6 +20,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.teamup.app.ui.screens.home.MainScreen
 import com.teamup.app.ui.screens.login.LoginScreen
+import com.teamup.app.ui.screens.tasks.TasksScreen
 
 /**
  * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
@@ -62,6 +63,9 @@ fun AppNavigation() {
         }
         composable("home") {
             MainScreen(navController)
+        }
+        composable("tasks") {
+            TasksScreen(navController)
         }
     }
 }
