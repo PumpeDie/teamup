@@ -69,7 +69,7 @@ fun MainScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(12.dp))
 
             Button(
-                onClick = { /* TODO: Navigation vers Chat */ },
+                onClick = { navController.navigate("chatList") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
                 Text("💬 Chat")

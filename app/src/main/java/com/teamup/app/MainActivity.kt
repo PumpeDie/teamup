@@ -21,6 +21,8 @@ import com.google.firebase.database.FirebaseDatabase
 import com.teamup.app.ui.screens.home.MainScreen
 import com.teamup.app.ui.screens.login.LoginScreen
 import com.teamup.app.ui.screens.tasks.TasksScreen
+import com.teamup.app.ui.screens.chat.ChatListScreen
+import com.teamup.app.ui.screens.chat.ChatScreen
 
 /**
  * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
@@ -65,6 +67,17 @@ fun AppNavigation() {
         }
         composable("tasks") {
             TasksScreen(navController)
+        }
+        
+        // Chat: Liste des groupes
+        composable("chatList") {
+            ChatListScreen(navController)
+        }
+        
+        // Chat: Conversation d'un groupe
+        composable("chat/{groupId}") { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            ChatScreen(navController, groupId)
         }
     }
 }
