@@ -2,6 +2,7 @@ package com.teamup.app.ui.screens.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -107,52 +109,159 @@ fun ChatListScreen(navController: NavController) {
 
 @Composable
 fun ChatGroupItem(group: ChatGroup, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(48.dp)
+    var showMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showMenu = true }
+                )
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Group, null)
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Group, null)
+                }
             }
-        }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = group.groupName,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
             
-            if (group.lastMessage.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = group.lastMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = group.groupName,
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+                
+                if (group.lastMessage.isNotEmpty()) {
+                    Text(
+                        text = group.lastMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            if (group.lastMessageTime > 0) {
+                Text(
+                    text = formatTimestamp(group.lastMessageTime),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
         
-        if (group.lastMessageTime > 0) {
-            Text(
-                text = formatTimestamp(group.lastMessageTime),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        // Menu contextuel
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Renommer") },
+                onClick = {
+                    showMenu = false
+                    showRenameDialog = true
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Supprimer") },
+                onClick = {
+                    showMenu = false
+                    showDeleteDialog = true
+                }
             )
         }
     }
+    
+    // Dialog renommer
+    if (showRenameDialog) {
+        RenameGroupDialog(
+            currentName = group.groupName,
+            onDismiss = { showRenameDialog = false },
+            onRename = { newName ->
+                coroutineScope.launch {
+                    ChatRepository.renameGroup(group.groupId, newName)
+                    showRenameDialog = false
+                }
+            }
+        )
+    }
+    
+    // Dialog supprimer
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Supprimer le groupe ?") },
+            text = { Text("Cette action est irréversible.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            ChatRepository.deleteGroup(group.groupId)
+                            showDeleteDialog = false
+                        }
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun RenameGroupDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(currentName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Renommer le groupe") },
+        text = {
+            OutlinedTextField(
+                value = newName,
+                onValueChange = { newName = it },
+                label = { Text("Nouveau nom") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onRename(newName) },
+                enabled = newName.isNotBlank() && newName != currentName
+            ) {
+                Text("Renommer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        }
+    )
 }
 
 @Composable
@@ -203,12 +312,15 @@ fun ChatScreen(navController: NavController, groupId: String) {
     val messages by ChatRepository.getGroupMessages(groupId).collectAsState(initial = emptyList())
     var messageText by remember { mutableStateOf("") }
     var groupName by remember { mutableStateOf("Chargement...") }
+    var memberCount by remember { mutableStateOf(0) }
+    var showAddMemberDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     
     LaunchedEffect(groupId) {
         ChatRepository.getGroup(groupId).onSuccess { group ->
             groupName = group.groupName
+            memberCount = group.memberIds.size
         }
     }
     
@@ -221,10 +333,24 @@ fun ChatScreen(navController: NavController, groupId: String) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(groupName) },
+                title = { 
+                    Column {
+                        Text(groupName)
+                        Text(
+                            text = "$memberCount membre${if (memberCount > 1) "s" else ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showAddMemberDialog = true }) {
+                        Icon(Icons.Default.PersonAdd, "Ajouter un membre")
                     }
                 }
             )
@@ -243,7 +369,8 @@ fun ChatScreen(navController: NavController, groupId: String) {
                         onValueChange = { messageText = it },
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
                         placeholder = { Text("Message...") },
-                        maxLines = 3
+                        maxLines = 3,
+                        singleLine = false
                     )
                     
                     IconButton(
@@ -293,6 +420,74 @@ fun ChatScreen(navController: NavController, groupId: String) {
             }
         }
     }
+    
+    // Dialog pour ajouter un membre
+    if (showAddMemberDialog) {
+        AddMemberDialog(
+            groupId = groupId,
+            onDismiss = { showAddMemberDialog = false }
+        )
+    }
+}
+
+@Composable
+fun AddMemberDialog(
+    groupId: String,
+    onDismiss: () -> Unit
+) {
+    var emailToAdd by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ajouter un membre") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = emailToAdd,
+                    onValueChange = { emailToAdd = it },
+                    label = { Text("Email de l'utilisateur") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (message.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (message.contains("Erreur")) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    coroutineScope.launch {
+                        ChatRepository.addMemberToGroup(groupId, emailToAdd).onSuccess {
+                            message = "Membre ajouté !"
+                            emailToAdd = ""
+                        }.onFailure { e ->
+                            message = "Erreur : ${e.message}"
+                        }
+                    }
+                },
+                enabled = emailToAdd.isNotBlank()
+            ) {
+                Text("Ajouter")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Fermer")
+            }
+        }
+    )
 }
 
 @Composable
@@ -325,10 +520,10 @@ fun MessageBubble(message: ChatMessage) {
             if (!isCurrentUser) {
                 Text(
                     text = message.userName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
             }
             
             Text(text = message.content, style = MaterialTheme.typography.bodyMedium)

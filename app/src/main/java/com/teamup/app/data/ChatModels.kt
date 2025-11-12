@@ -110,7 +110,7 @@ object ChatRepository {
         messagesRef.child(groupId).addValueEventListener(listener)
         awaitClose { messagesRef.child(groupId).removeEventListener(listener) }
     }
-    
+
     /**
     * Crée un nouveau groupe
     */
@@ -152,7 +152,7 @@ object ChatRepository {
                 messageId = messageId,
                 groupId = groupId,
                 userId = user.uid,
-                userName = user.displayName ?: user.email ?: "Anonyme",
+                userName = user.email?.substringBefore("@") ?: "Utilisateur",
                 content = content,
                 timestamp = System.currentTimeMillis()
             )
@@ -187,6 +187,65 @@ object ChatRepository {
                 Result.failure(Exception("Group not found"))
             }
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Renomme un groupe
+     */
+    suspend fun renameGroup(groupId: String, newName: String): Result<Unit> {
+        return try {
+            groupsRef.child(groupId).child("groupName").setValue(newName).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Supprime un groupe et ses messages
+     */
+    suspend fun deleteGroup(groupId: String): Result<Unit> {
+        return try {
+            groupsRef.child(groupId).removeValue().await()
+            messagesRef.child(groupId).removeValue().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Ajoute un membre à un groupe par email
+     * Note: Version simplifiée - recherche parmi tous les membres existants des groupes
+     */
+    suspend fun addMemberToGroup(groupId: String, memberEmail: String): Result<Unit> {
+        return try {
+            // Récupérer tous les groupes pour trouver l'utilisateur
+            val allGroupsSnapshot = groupsRef.get().await()
+            var foundUserId: String? = null
+            
+            // Chercher l'utilisateur dans tous les groupes existants
+            allGroupsSnapshot.children.forEach { groupSnapshot ->
+                val group = groupSnapshot.getValue(ChatGroup::class.java)
+                // Note: Pour l'instant on ne peut pas vraiment chercher par email
+                // car on n'a pas de collection users
+            }
+            
+            // Alternative simple: permettre l'ajout par UID
+            if (memberEmail.isBlank()) {
+                return Result.failure(Exception("Veuillez entrer un email"))
+            }
+            
+            // Pour le MVP, on demande à l'utilisateur de partager le code du groupe
+            // et on permet d'entrer l'UID directement
+            Result.failure(Exception("Fonctionnalité en cours de développement. Partagez le lien du groupe avec vos amis !"))
+            
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error: ${e.message}")
             Result.failure(e)
         }
     }
