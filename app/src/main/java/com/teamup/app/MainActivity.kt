@@ -46,7 +46,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-
     // Détermine la page de démarrage selon la session Firebase
     val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
         "home"
