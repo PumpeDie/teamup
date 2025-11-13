@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 
 
 /**
@@ -54,7 +55,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { /* TODO: Navigation vers Groupes */ },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("📋 Groupes")
+                Text("Groupes")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -63,7 +64,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("tasks") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("✓ Tâches")
+                Text("Tâches")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -72,7 +73,21 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("chatList") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("💬 Chat")
+                Text("Chat")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    FirebaseAuth.getInstance().signOut()
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = true } // évite de revenir en arrière
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(0.7f)
+            ) {
+                Text("Se déconnecter")
             }
         }
     }
