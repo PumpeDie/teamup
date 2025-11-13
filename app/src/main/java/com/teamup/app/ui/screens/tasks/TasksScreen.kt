@@ -261,7 +261,7 @@ fun TaskItem(
                 )
                 if (task.dueDate.isNotEmpty()) {
                     Text(
-                        text = "Échéance: ${task.dueDate}",
+                        text = "Date de rendu: ${task.dueDate}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
