@@ -53,7 +53,6 @@ fun AgendaScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
     var showAddDialog by remember { mutableStateOf(false) }
 
-    // État pour l'événement sélectionné (pour voir les détails ou supprimer)
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
 
@@ -104,16 +103,15 @@ fun AgendaScreen(navController: NavController) {
             WeeklyAgendaView(
                 modifier = Modifier.padding(innerPadding),
                 events = events,
-                // Le clic sur un événement met à jour l'état selectedEvent
                 onEventClick = { event ->
                     selectedEvent = event
                 }
             )
         }
 
-        // --- Dialogues ---
 
-        // Dialogue d'ajout
+
+
         if (showAddDialog) {
             AddEventDialog(
                 onDismiss = { showAddDialog = false },
@@ -134,9 +132,8 @@ fun AgendaScreen(navController: NavController) {
                 event = selectedEvent!!,
                 onDismiss = { selectedEvent = null }, // Pour fermer le dialogue
                 onDelete = {
-                    // Logique de suppression Firebase
                     eventsRef.child(selectedEvent!!.id).removeValue()
-                    selectedEvent = null // Ferme le dialogue après suppression
+                    selectedEvent = null
                 }
             )
         }
@@ -216,7 +213,7 @@ fun AddEventDialog(onDismiss: () -> Unit, onConfirm: (Event) -> Unit) {
                 onClick = {
                     val newEvent = Event(
                         title = title,
-                        day = selectedDay.name, // Convertit DayOfWeek en String
+                        day = selectedDay.name,
                         hour = selectedHour
                     )
                     onConfirm(newEvent)
@@ -233,7 +230,7 @@ fun AddEventDialog(onDismiss: () -> Unit, onConfirm: (Event) -> Unit) {
 fun WeeklyAgendaView(
     modifier: Modifier = Modifier,
     events: List<Event>,
-    onEventClick: (Event) -> Unit // Le paramètre est le même
+    onEventClick: (Event) -> Unit
 ) {
     val daysOfWeek = DayOfWeek.values()
     val hoursOfDay = (8..20).toList()
@@ -252,7 +249,7 @@ fun WeeklyAgendaView(
                         DayCell(
                             modifier = Modifier.weight(1f),
                             event = event,
-                            onEventClick = onEventClick // Le passer à DayCell
+                            onEventClick = onEventClick
                         )
                     }
                 }
@@ -266,14 +263,14 @@ fun WeeklyAgendaView(
 private fun RowScope.DayCell(
     modifier: Modifier,
     event: Event?,
-    onEventClick: (Event) -> Unit // Le paramètre est le même
+    onEventClick: (Event) -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxHeight()
             .border(width = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
             .padding(2.dp)
-            .clickable(enabled = event != null) { // Gérer le clic ici
+            .clickable(enabled = event != null) {
                 if (event != null) {
                     onEventClick(event)
                 }
@@ -339,8 +336,6 @@ private fun RowScope.HourCell(hour: String) {
     )
 }
 
-// REMPLACÉ : Ancien DeleteEventDialog
-// NOUVEAU : Composable pour les détails de l'événement
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EventDetailsDialog(
@@ -348,7 +343,6 @@ fun EventDetailsDialog(
     onDismiss: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // Reformatter le jour pour l'affichage
     val dayOfWeek = try {
         DayOfWeek.valueOf(event.day)
     } catch (e: Exception) {
@@ -375,18 +369,16 @@ fun EventDetailsDialog(
             }
         },
         confirmButton = {
-            // Bouton pour l'action destructive (Supprimer)
             Button(
                 onClick = onDelete,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error // Couleur rouge pour le danger (bon UX)
+                    containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
                 Text("Supprimer")
             }
         },
         dismissButton = {
-            // Bouton pour fermer le dialogue
             TextButton(onClick = onDismiss) {
                 Text("Fermer")
             }
