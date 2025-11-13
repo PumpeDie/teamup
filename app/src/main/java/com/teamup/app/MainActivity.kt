@@ -23,6 +23,7 @@ import com.teamup.app.ui.screens.login.LoginScreen
 import com.teamup.app.ui.screens.tasks.TasksScreen
 import com.teamup.app.ui.screens.chat.ChatListScreen
 import com.teamup.app.ui.screens.chat.ChatScreen
+import com.teamup.app.ui.screens.agenda.AgendaScreen
 
 /**
  * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
@@ -68,8 +69,10 @@ fun AppNavigation() {
         composable("tasks") {
             TasksScreen(navController)
         }
-        
-        // Chat: Liste des groupes
+
+        composable("agenda") {
+            AgendaScreen(navController)
+        }
         composable("chatList") {
             ChatListScreen(navController)
         }

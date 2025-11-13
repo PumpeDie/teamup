@@ -42,14 +42,14 @@ fun MainScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "MVP - Développez nos 3 fonctionnalités",
+                text = "MVP - Choisissez une fonctionnalité",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Boutons pour les 3 fonctionnalités
+            // Boutons pour les fonctionnalités
             Button(
                 onClick = { /* TODO: Navigation vers Groupes */ },
                 modifier = Modifier.fillMaxWidth(0.7f)
@@ -74,6 +74,17 @@ fun MainScreen(navController: NavController) {
             ) {
                 Text("💬 Chat")
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // --- BOUTON AJOUTÉ POUR L'AGENDA ---
+            Button(
+                onClick = { navController.navigate("agenda") },
+                modifier = Modifier.fillMaxWidth(0.7f)
+            ) {
+                Text("📅 Agenda")
+            }
+            // ------------------------------------
         }
     }
 }
