@@ -78,6 +78,17 @@ fun MainScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // --- BOUTON AJOUTÉ POUR L'AGENDA ---
+            Button(
+                onClick = { navController.navigate("agenda") },
+                modifier = Modifier.fillMaxWidth(0.7f)
+            ) {
+                Text("Agenda")
+            }
+
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
                 onClick = {
                     FirebaseAuth.getInstance().signOut()
@@ -89,17 +100,6 @@ fun MainScreen(navController: NavController) {
             ) {
                 Text("Se déconnecter")
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // --- BOUTON AJOUTÉ POUR L'AGENDA ---
-            Button(
-                onClick = { navController.navigate("agenda") },
-                modifier = Modifier.fillMaxWidth(0.7f)
-            ) {
-                Text("📅 Agenda")
-            }
-            // ------------------------------------
         }
     }
 }
