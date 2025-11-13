@@ -5,7 +5,7 @@ import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable // Import
+import androidx.compose.foundation.clickable 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -126,11 +126,10 @@ fun AgendaScreen(navController: NavController) {
             )
         }
 
-        // NOUVEAU: Dialogue des détails de l'événement
         if (selectedEvent != null) {
             EventDetailsDialog(
                 event = selectedEvent!!,
-                onDismiss = { selectedEvent = null }, // Pour fermer le dialogue
+                onDismiss = { selectedEvent = null }, 
                 onDelete = {
                     eventsRef.child(selectedEvent!!.id).removeValue()
                     selectedEvent = null
@@ -354,7 +353,6 @@ fun EventDetailsDialog(
         onDismissRequest = onDismiss,
         title = { Text("Détails de l'événement") },
         text = {
-            // Afficher les détails de l'événement
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Titre:", style = MaterialTheme.typography.labelMedium)
                 Text(event.title, style = MaterialTheme.typography.bodyLarge)
