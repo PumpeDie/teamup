@@ -8,16 +8,30 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-// ============================================================================
-// MODÈLES DE DONNÉES
-// ============================================================================
 
-/**
- * Représente un message dans un chat de groupe
- */
+data class TeamGroup(
+    val teamId: String = "",
+    val teamName: String = "",
+    val memberIds: List<String> = emptyList()
+) {
+    constructor() : this("", "", emptyList())
+}
+
+
+data class ChatRoom(
+    val chatRoomId: String = "",
+    val teamId: String = "",
+    val chatName: String = "",
+    val lastMessage: String = "",
+    val lastMessageTime: Long = 0L
+) {
+    constructor() : this("", "", "", "", 0L)
+}
+
+
 data class ChatMessage(
     val messageId: String = "",
-    val groupId: String = "",
+    val chatRoomId: String = "",
     val userId: String = "",
     val userName: String = "",
     val content: String = "",
@@ -26,226 +40,241 @@ data class ChatMessage(
     constructor() : this("", "", "", "", "", 0L)
 }
 
-/**
- * Représente un groupe de chat
- */
-data class ChatGroup(
-    val groupId: String = "",
-    val groupName: String = "",
-    val lastMessage: String = "",
-    val lastMessageTime: Long = 0L,
-    val memberIds: List<String> = emptyList()
-) {
-    constructor() : this("", "", "", 0L, emptyList())
-}
 
-// ============================================================================
-// REPOSITORY FIREBASE
-// ============================================================================
 
-/**
- * Repository pour gérer les chats Firebase
- */
+
 object ChatRepository {
-    
+
     private val database = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
+
     private val messagesRef = database.getReference("messages")
-    private val groupsRef = database.getReference("groups")
-    
-    /**
-     * Récupère les groupes de l'utilisateur en temps réel
-     */
-    fun getUserGroups(): Flow<List<ChatGroup>> = callbackFlow {
-        val userId = auth.currentUser?.uid ?: ""
-        
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val groups = mutableListOf<ChatGroup>()
-                
-                snapshot.children.forEach { groupSnapshot ->
-                    val group = groupSnapshot.getValue(ChatGroup::class.java)
-                    if (group != null && group.memberIds.contains(userId)) {
-                        groups.add(group)
-                    }
-                }
-                
-                groups.sortByDescending { it.lastMessageTime }
-                trySend(groups)
-            }
-            
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("ChatRepository", "Error: ${error.message}")
-            }
+
+    private val teamsRef = database.getReference("teams")
+
+
+
+
+
+    suspend fun getUserTeamId(): String? {
+        val userId = auth.currentUser?.uid
+
+        if (userId == null) {
+            Log.e("ChatRepository", "getUserTeamId: User not logged in")
+            return null
         }
-        
-        groupsRef.addValueEventListener(listener)
-        awaitClose { groupsRef.removeEventListener(listener) }
-    }
-    
-    /**
-     * Récupère les messages d'un groupe en temps réel
-     */
-    fun getGroupMessages(groupId: String): Flow<List<ChatMessage>> = callbackFlow {
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val messages = mutableListOf<ChatMessage>()
-                
-                snapshot.children.forEach { messageSnapshot ->
-                    val message = messageSnapshot.getValue(ChatMessage::class.java)
-                    if (message != null) {
-                        messages.add(message)
-                    }
+
+        return try {
+            Log.d("ChatRepository", "getUserTeamId: Fetching teams for user $userId")
+            val snapshot = teamsRef.get().await()
+
+            if (!snapshot.exists()) {
+                Log.d("ChatRepository", "getUserTeamId: No teams exist in database")
+                return null
+            }
+
+
+
+            val team = snapshot.children.mapNotNull {
+                try {
+                    it.getValue(TeamGroup::class.java)
+                } catch (e: Exception) {
+                    Log.e("ChatRepository", "Error parsing team: ${e.message}")
+                    null
                 }
-                
-                messages.sortBy { it.timestamp }
-                trySend(messages)
+            }.find { team ->
+
+                team.memberIds.contains(userId)
             }
-            
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("ChatRepository", "Error: ${error.message}")
+
+            if (team != null) {
+                Log.d("ChatRepository", "getUserTeamId: Found team ${team.teamId}")
+            } else {
+                Log.d("ChatRepository", "getUserTeamId: No team found for user")
             }
+
+            team?.teamId
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error in getUserTeamId: ${e.message}", e)
+            null
         }
-        
-        messagesRef.child(groupId).addValueEventListener(listener)
-        awaitClose { messagesRef.child(groupId).removeEventListener(listener) }
     }
 
     /**
-    * Crée un nouveau groupe
-    */
-    suspend fun createGroup(groupName: String): Result<String> {
+     * Crée un nouveau TeamGroup (Groupe de Connexion).
+     */
+    suspend fun createTeam(teamName: String): Result<String> {
         return try {
             val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
-            
-            val groupId = groupsRef.push().key
+
+            val teamId = teamsRef.push().key
                 ?: return Result.failure(Exception("Failed to generate ID"))
-            
-            val group = ChatGroup(
-                groupId = groupId,
-                groupName = groupName,
-                lastMessage = "",
-                lastMessageTime = System.currentTimeMillis(),
+
+            val team = TeamGroup(
+                teamId = teamId,
+                teamName = teamName,
                 memberIds = listOf(user.uid)
             )
-            
-            groupsRef.child(groupId).setValue(group).await()
-            
-            Result.success(groupId)
+
+            Log.d("ChatRepository", "Creating team: $teamId with name: $teamName")
+            teamsRef.child(teamId).setValue(team).await()
+            Log.d("ChatRepository", "Team created successfully")
+
+            Result.success(teamId)
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
+            Log.e("ChatRepository", "Error creating team: ${e.message}", e)
             Result.failure(e)
         }
     }
-    
+
     /**
-     * Envoie un message
+     * Permet à l'utilisateur actuel de rejoindre un TeamGroup (Groupe de Connexion) par son ID.
      */
-    suspend fun sendMessage(groupId: String, content: String): Result<Unit> {
+    suspend fun joinTeam(teamId: String): Result<Unit> {
+        val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
+        val userId = user.uid
+        val teamRef = teamsRef.child(teamId)
+
+        return try {
+            Log.d("ChatRepository", "Attempting to join team: $teamId")
+            val snapshot = teamRef.get().await()
+
+            if (!snapshot.exists()) {
+                Log.e("ChatRepository", "Team does not exist: $teamId")
+                return Result.failure(Exception("Le TeamGroup n'existe pas."))
+            }
+
+            val team = snapshot.getValue(TeamGroup::class.java)
+
+            if (team == null) {
+                Log.e("ChatRepository", "Failed to parse team data")
+                return Result.failure(Exception("Impossible de lire les données du TeamGroup."))
+            }
+
+            if (team.memberIds.contains(userId)) {
+                Log.d("ChatRepository", "User already member of team")
+                return Result.success(Unit)
+            }
+
+            val updatedMembers = team.memberIds + userId
+            teamRef.child("memberIds").setValue(updatedMembers).await()
+            Log.d("ChatRepository", "Successfully joined team")
+
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error joining team: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+
+    fun getTeamChatRooms(teamId: String): Flow<List<ChatRoom>> = callbackFlow {
+        val chatRoomsRef = teamsRef.child(teamId).child("chatRooms")
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val chatRooms = snapshot.children.mapNotNull {
+                    try {
+                        it.getValue(ChatRoom::class.java)
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Error parsing chat room: ${e.message}")
+                        null
+                    }
+                }
+
+
+                trySend(chatRooms.sortedByDescending { it.lastMessageTime })
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("ChatRepository", "Error: ${error.message}")
+            }
+        }
+
+        chatRoomsRef.addValueEventListener(listener)
+        awaitClose { chatRoomsRef.removeEventListener(listener) }
+    }
+
+
+    suspend fun createChatRoom(teamId: String, chatName: String): Result<String> {
+        return try {
+            val chatRoomsRef = teamsRef.child(teamId).child("chatRooms")
+            val chatRoomId = chatRoomsRef.push().key
+                ?: return Result.failure(Exception("Failed to generate ID"))
+
+            val chatRoom = ChatRoom(
+                chatRoomId = chatRoomId,
+                teamId = teamId,
+                chatName = chatName,
+                lastMessage = "",
+                lastMessageTime = System.currentTimeMillis()
+            )
+
+            Log.d("ChatRepository", "Creating chat room: $chatRoomId")
+            chatRoomsRef.child(chatRoomId).setValue(chatRoom).await()
+            Log.d("ChatRepository", "Chat room created successfully")
+
+            Result.success(chatRoomId)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error creating chat room: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+
+    fun getChatRoomMessages(chatRoomId: String): Flow<List<ChatMessage>> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val messages = snapshot.children.mapNotNull {
+                    try {
+                        it.getValue(ChatMessage::class.java)
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Error parsing message: ${e.message}")
+                        null
+                    }
+                }
+                trySend(messages.sortedBy { it.timestamp })
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("ChatRepository", "Error: ${error.message}")
+            }
+        }
+
+        messagesRef.child(chatRoomId).addValueEventListener(listener)
+        awaitClose { messagesRef.child(chatRoomId).removeEventListener(listener) }
+    }
+
+
+    suspend fun sendMessage(chatRoomId: String, teamId: String, content: String): Result<Unit> {
         return try {
             val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
-            
-            val messageId = messagesRef.child(groupId).push().key
+
+            val messageId = messagesRef.child(chatRoomId).push().key
                 ?: return Result.failure(Exception("Failed to generate ID"))
-            
+
             val message = ChatMessage(
                 messageId = messageId,
-                groupId = groupId,
+                chatRoomId = chatRoomId,
                 userId = user.uid,
                 userName = user.email?.substringBefore("@") ?: "Utilisateur",
                 content = content,
                 timestamp = System.currentTimeMillis()
             )
-            
-            messagesRef.child(groupId).child(messageId).setValue(message).await()
-            
-            // Mettre à jour le dernier message
+
+            messagesRef.child(chatRoomId).child(messageId).setValue(message).await()
+
+
             val updates = mapOf(
                 "lastMessage" to content,
                 "lastMessageTime" to message.timestamp
             )
-            groupsRef.child(groupId).updateChildren(updates).await()
-            
+            teamsRef.child(teamId).child("chatRooms").child(chatRoomId).updateChildren(updates).await()
+
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Récupère un groupe
-     */
-    suspend fun getGroup(groupId: String): Result<ChatGroup> {
-        return try {
-            val snapshot = groupsRef.child(groupId).get().await()
-            val group = snapshot.getValue(ChatGroup::class.java)
-            
-            if (group != null) {
-                Result.success(group)
-            } else {
-                Result.failure(Exception("Group not found"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Renomme un groupe
-     */
-    suspend fun renameGroup(groupId: String, newName: String): Result<Unit> {
-        return try {
-            groupsRef.child(groupId).child("groupName").setValue(newName).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Supprime un groupe et ses messages
-     */
-    suspend fun deleteGroup(groupId: String): Result<Unit> {
-        return try {
-            groupsRef.child(groupId).removeValue().await()
-            messagesRef.child(groupId).removeValue().await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Ajoute un membre à un groupe par email
-     * Note: Version simplifiée - recherche parmi tous les membres existants des groupes
-     */
-    suspend fun addMemberToGroup(groupId: String, memberEmail: String): Result<Unit> {
-        return try {
-            // Récupérer tous les groupes pour trouver l'utilisateur
-            val allGroupsSnapshot = groupsRef.get().await()
-            var foundUserId: String? = null
-            
-            // Chercher l'utilisateur dans tous les groupes existants
-            allGroupsSnapshot.children.forEach { groupSnapshot ->
-                val group = groupSnapshot.getValue(ChatGroup::class.java)
-                // Note: Pour l'instant on ne peut pas vraiment chercher par email
-                // car on n'a pas de collection users
-            }
-            
-            // Alternative simple: permettre l'ajout par UID
-            if (memberEmail.isBlank()) {
-                return Result.failure(Exception("Veuillez entrer un email"))
-            }
-            
-            // Pour le MVP, on demande à l'utilisateur de partager le code du groupe
-            // et on permet d'entrer l'UID directement
-            Result.failure(Exception("Fonctionnalité en cours de développement. Partagez le lien du groupe avec vos amis !"))
-            
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
+            Log.e("ChatRepository", "Error sending message: ${e.message}", e)
             Result.failure(e)
         }
     }
