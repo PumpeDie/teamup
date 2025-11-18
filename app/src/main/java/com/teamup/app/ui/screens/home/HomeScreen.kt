@@ -11,12 +11,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import com.teamup.app.data.ChatRepository
 
 
 /**
@@ -24,6 +25,18 @@ import com.google.firebase.auth.FirebaseAuth
  */
 @Composable
 fun MainScreen(navController: NavController) {
+
+    var teamId by remember { mutableStateOf("Chargement...") }
+
+    LaunchedEffect(Unit) {
+        val id = ChatRepository.getUserTeamId()
+        teamId = if (id.isNullOrBlank()) {
+            "Aucun Groupe de Connexion trouvé"
+        } else {
+              id.take(6).uppercase()
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -42,20 +55,20 @@ fun MainScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+
             Text(
-                text = "MVP - Choisissez une fonctionnalité",
+                text = "ID du Groupe de Connexion : $teamId",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Boutons pour les fonctionnalités
             Button(
                 onClick = { /* TODO: Navigation vers Groupes */ },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Groupes")
+                Text("Gestion du Groupe de Connexion")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -64,7 +77,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("tasks") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Tâches")
+                Text("Tâches (Team $teamId)")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -73,17 +86,16 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("chatList") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Chat")
+                Text("Chats (Team $teamId)")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // --- BOUTON AJOUTÉ POUR L'AGENDA ---
             Button(
                 onClick = { navController.navigate("agenda") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Agenda")
+                Text("Agenda (Team $teamId)")
             }
 
 
@@ -93,8 +105,7 @@ fun MainScreen(navController: NavController) {
                 onClick = {
                     FirebaseAuth.getInstance().signOut()
                     navController.navigate("login") {
-                        popUpTo("home") { inclusive = true } // évite de revenir en arrière
-                    }
+                        popUpTo("home") { inclusive = true } }
                 },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
