@@ -69,6 +69,10 @@ fun AppNavigation() {
             GroupSelectionScreen(navController)
         }
 
+        composable("groupInfo") {
+            com.teamup.app.ui.screens.group.GroupManagementScreen(navController)
+        }
+
         composable("home") {
             MainScreen(navController)
         }

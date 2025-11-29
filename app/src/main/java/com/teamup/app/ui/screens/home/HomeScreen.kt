@@ -65,7 +65,7 @@ fun MainScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = { /* TODO: Navigation vers Groupes */ },
+                onClick = { navController.navigate("groupInfo") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
                 Text("Gestion du groupe")
