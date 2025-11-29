@@ -26,12 +26,15 @@ import java.util.Locale
 fun ChatListScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     var teamId by remember { mutableStateOf<String?>(null) }
+    var teamName by remember { mutableStateOf("Chargement...") }
     var chatRooms by remember { mutableStateOf(emptyList<ChatRoom>()) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        teamId = ChatRepository.getUserTeamId()
+        val team = ChatRepository.getUserTeam()
+        teamId = team?.teamId
+        teamName = team?.teamName ?: "Aucun groupe"
         isLoading = false
     }
 
@@ -60,7 +63,7 @@ fun ChatListScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Chats du Team ${currentTeamId.take(6)}") },
+                title = { Text("Chats - $teamName") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")

@@ -47,12 +47,15 @@ fun TasksScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid
     var teamId by remember { mutableStateOf<String?>(null) }
+    var teamName by remember { mutableStateOf("Chargement...") }
     val userName by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser?.email?.substringBefore('@') ?: "Utilisateur")}
 
 
     LaunchedEffect(userId) {
         if (userId != null) {
-            teamId = ChatRepository.getUserTeamId() // Récupère l'ID du Groupe de Connexion
+            val team = ChatRepository.getUserTeam()
+            teamId = team?.teamId
+            teamName = team?.teamName ?: "Aucun groupe"
         }
     }
 
@@ -108,7 +111,7 @@ fun TasksScreen(navController: NavController) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Tâches du Team ${teamId!!.take(6)}",
+                        text = "Tâches - $teamName",
                         style = MaterialTheme.typography.titleLarge
                     )
                 },

@@ -54,9 +54,12 @@ fun ChatScreen(
             }
     }
 
-
-    LaunchedEffect(chatRoomId) {
-        chatName = "Chat ${chatRoomId.take(6)}"
+    // Récupère le nom du chat room
+    LaunchedEffect(teamId, chatRoomId) {
+        ChatRepository.getTeamChatRooms(teamId).collect { rooms ->
+            val room = rooms.find { it.chatRoomId == chatRoomId }
+            chatName = room?.chatName ?: "Chat"
+        }
     }
 
     Scaffold(

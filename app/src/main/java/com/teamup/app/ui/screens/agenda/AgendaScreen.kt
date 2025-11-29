@@ -57,9 +57,12 @@ fun AgendaScreen(navController: NavController) {
     val currentUser = auth.currentUser
     val userName = currentUser?.email?.substringBefore('@') ?: "Utilisateur"
     var teamId by remember { mutableStateOf<String?>(null) }
+    var teamName by remember { mutableStateOf("Chargement...") }
 
     LaunchedEffect(Unit) {
-        teamId = ChatRepository.getUserTeamId()
+        val team = ChatRepository.getUserTeam()
+        teamId = team?.teamId
+        teamName = team?.teamName ?: "Aucun groupe"
     }
 
     if (teamId == null) {
@@ -123,8 +126,7 @@ fun AgendaScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-
-                title = { Text("Agenda Team ${teamId!!.take(6)}") },
+                title = { Text("Agenda - $teamName") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, "Retour")

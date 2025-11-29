@@ -53,24 +53,33 @@ object ChatRepository {
 
 
 
+    /**
+     * Récupère l'ID du TeamGroup de l'utilisateur connecté.
+     */
     suspend fun getUserTeamId(): String? {
+        val team = getUserTeam()
+        return team?.teamId
+    }
+
+    /**
+     * Récupère le TeamGroup complet de l'utilisateur connecté.
+     */
+    suspend fun getUserTeam(): TeamGroup? {
         val userId = auth.currentUser?.uid
 
         if (userId == null) {
-            Log.e("ChatRepository", "getUserTeamId: User not logged in")
+            Log.e("ChatRepository", "getUserTeam: User not logged in")
             return null
         }
 
         return try {
-            Log.d("ChatRepository", "getUserTeamId: Fetching teams for user $userId")
+            Log.d("ChatRepository", "getUserTeam: Fetching teams for user $userId")
             val snapshot = teamsRef.get().await()
 
             if (!snapshot.exists()) {
-                Log.d("ChatRepository", "getUserTeamId: No teams exist in database")
+                Log.d("ChatRepository", "getUserTeam: No teams exist in database")
                 return null
             }
-
-
 
             val team = snapshot.children.mapNotNull {
                 try {
@@ -80,19 +89,18 @@ object ChatRepository {
                     null
                 }
             }.find { team ->
-
                 team.memberIds.contains(userId)
             }
 
             if (team != null) {
-                Log.d("ChatRepository", "getUserTeamId: Found team ${team.teamId}")
+                Log.d("ChatRepository", "getUserTeam: Found team ${team.teamId} (${team.teamName})")
             } else {
-                Log.d("ChatRepository", "getUserTeamId: No team found for user")
+                Log.d("ChatRepository", "getUserTeam: No team found for user")
             }
 
-            team?.teamId
+            team
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Error in getUserTeamId: ${e.message}", e)
+            Log.e("ChatRepository", "Error in getUserTeam: ${e.message}", e)
             null
         }
     }

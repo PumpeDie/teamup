@@ -26,14 +26,14 @@ import com.teamup.app.data.ChatRepository
 @Composable
 fun MainScreen(navController: NavController) {
 
-    var teamId by remember { mutableStateOf("Chargement...") }
+    var teamName by remember { mutableStateOf("Chargement...") }
 
     LaunchedEffect(Unit) {
-        val id = ChatRepository.getUserTeamId()
-        teamId = if (id.isNullOrBlank()) {
-            "Aucun Groupe de Connexion trouvé"
+        val team = ChatRepository.getUserTeam()
+        teamName = if (team == null) {
+            "Aucun groupe"
         } else {
-              id.take(6).uppercase()
+            team.teamName
         }
     }
 
@@ -57,7 +57,7 @@ fun MainScreen(navController: NavController) {
 
 
             Text(
-                text = "ID du Groupe de Connexion : $teamId",
+                text = "Groupe : $teamName",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -68,7 +68,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { /* TODO: Navigation vers Groupes */ },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Gestion du Groupe de Connexion")
+                Text("Gestion du groupe")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -77,7 +77,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("tasks") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Tâches (Team $teamId)")
+                Text("Tâches")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -86,7 +86,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("chatList") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Chats (Team $teamId)")
+                Text("Chats")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -95,7 +95,7 @@ fun MainScreen(navController: NavController) {
                 onClick = { navController.navigate("agenda") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                Text("Agenda (Team $teamId)")
+                Text("Agenda")
             }
 
 
