@@ -292,4 +292,125 @@ object ChatRepository {
             Result.failure(e)
         }
     }
+
+    // ============================================================================
+    // GESTION DE GROUPE (TODO: à déplacer dans GroupRepository lors de la refactorisation)
+    // ============================================================================
+
+    /**
+     * Récupère les informations détaillées des membres du groupe
+     * Retourne une liste de Pair<userId, email>
+     */
+    suspend fun getTeamMembersDetails(teamId: String): Result<List<Pair<String, String>>> {
+        return try {
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            val membersDetails = mutableListOf<Pair<String, String>>()
+            
+            for (userId in team.memberIds) {
+                // Récupère l'utilisateur depuis Firebase Auth
+                try {
+                    val userEmail = if (userId == auth.currentUser?.uid) {
+                        auth.currentUser?.email ?: "Utilisateur inconnu"
+                    } else {
+                        // Pour les autres utilisateurs, on affiche un email générique
+                        // car Firebase Auth ne permet pas de récupérer les infos d'autres users facilement
+                        "Membre (${userId.take(8)})"
+                    }
+                    membersDetails.add(Pair(userId, userEmail))
+                } catch (e: Exception) {
+                    membersDetails.add(Pair(userId, "Utilisateur inconnu"))
+                }
+            }
+
+            Result.success(membersDetails)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error getting team members: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Renomme un groupe
+     */
+    suspend fun renameTeam(teamId: String, newName: String): Result<Unit> {
+        return try {
+            if (newName.isBlank()) {
+                return Result.failure(Exception("Le nom ne peut pas être vide"))
+            }
+
+            teamsRef.child(teamId).child("teamName").setValue(newName).await()
+            Log.d("ChatRepository", "Team renamed successfully: $teamId -> $newName")
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error renaming team: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Permet à l'utilisateur de quitter un groupe
+     */
+    suspend fun leaveTeam(teamId: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid 
+                ?: return Result.failure(Exception("Utilisateur non connecté"))
+
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            if (!team.memberIds.contains(userId)) {
+                return Result.failure(Exception("Vous n'êtes pas membre de ce groupe"))
+            }
+
+            // Retire l'utilisateur de la liste des membres
+            val updatedMembers = team.memberIds.filter { it != userId }
+            
+            if (updatedMembers.isEmpty()) {
+                // Si c'était le dernier membre, on supprime le groupe
+                teamsRef.child(teamId).removeValue().await()
+                Log.d("ChatRepository", "Last member left, team deleted: $teamId")
+            } else {
+                teamsRef.child(teamId).child("memberIds").setValue(updatedMembers).await()
+                Log.d("ChatRepository", "User left team successfully: $userId from $teamId")
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error leaving team: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Supprime un groupe (seulement pour le créateur)
+     */
+    suspend fun deleteTeam(teamId: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid 
+                ?: return Result.failure(Exception("Utilisateur non connecté"))
+
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            // Vérifie que l'utilisateur est le premier membre (créateur)
+            if (team.memberIds.firstOrNull() != userId) {
+                return Result.failure(Exception("Seul le créateur peut supprimer le groupe"))
+            }
+
+            // Supprime le groupe et toutes ses données
+            teamsRef.child(teamId).removeValue().await()
+            Log.d("ChatRepository", "Team deleted successfully: $teamId")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error deleting team: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
 }
