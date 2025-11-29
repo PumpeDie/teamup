@@ -17,6 +17,7 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
     val isLoginMode = viewModel.isLoginMode
     val isLoading = viewModel.isLoading
@@ -66,7 +67,7 @@ fun LoginScreen(
         Button(
             onClick = {
                 viewModel.authenticate(email, password) {
-                    navController.navigate("home") {
+                     navController.navigate("groupSelection") {
                         popUpTo("login") { inclusive = true }
                     }
                 }

@@ -5,7 +5,7 @@ import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,8 +15,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,51 +23,102 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.teamup.app.data.ChatRepository
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.Exception
 
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Keep
-data class Event  constructor(
+data class Event constructor(
     var id: String = "",
     var title: String = "",
     var day: String = DayOfWeek.MONDAY.name,
-    var hour: Int = 8
+    var hour: Int = 8,
+    var createdBy: String = "",
+    var createdByName: String = "",
+    var createdAt: Long = System.currentTimeMillis()
 )
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgendaScreen(navController: NavController) {
 
-    val eventsRef = FirebaseDatabase.getInstance().getReference("events")
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+    val userName = currentUser?.email?.substringBefore('@') ?: "Utilisateur"
+    var teamId by remember { mutableStateOf<String?>(null) }
+    var teamName by remember { mutableStateOf("Chargement...") }
+
+    LaunchedEffect(Unit) {
+        val team = ChatRepository.getUserTeam()
+        teamId = team?.teamId
+        teamName = team?.teamName ?: "Aucun groupe"
+    }
+
+    if (teamId == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+            Text("Chargement du Team...")
+        }
+        return
+    }
+
+    if (teamId!!.isBlank()) {
+        Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+            Text(
+                "Veuillez d'abord créer ou rejoindre un Groupe de Connexion pour voir l'agenda.",
+                textAlign = TextAlign.Center
+            )
+        }
+        return
+    }
+
+
+    val database = FirebaseDatabase.getInstance()
+    val agendaRef = database.getReference("teams").child(teamId!!).child("agenda")
+
+
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showAddDialog by remember { mutableStateOf(false) }
-
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
-
-    LaunchedEffect(Unit) {
-        eventsRef.addValueEventListener(object : ValueEventListener {
+    LaunchedEffect(teamId) {
+        agendaRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val fetchedEvents = snapshot.children.mapNotNull { eventSnapshot ->
-                    val event = eventSnapshot.getValue(Event::class.java)
-                    event?.id = eventSnapshot.key ?: ""
-                    event
+                val fetchedEvents = mutableListOf<Event>()
+
+
+                snapshot.children.forEach { daySnapshot ->
+
+                    daySnapshot.children.forEach { eventSnapshot ->
+                        val event = eventSnapshot.getValue(Event::class.java)
+                        if (event != null) {
+                            event.id = eventSnapshot.key ?: ""
+
+                            fetchedEvents.add(event)
+                        }
+                    }
                 }
+
+
                 events = fetchedEvents
                 isLoading = false
             }
 
             override fun onCancelled(error: DatabaseError) {
                 isLoading = false
+
             }
         })
     }
@@ -77,7 +126,7 @@ fun AgendaScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Agenda Hebdomadaire") },
+                title = { Text("Agenda - $teamName") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, "Retour")
@@ -100,6 +149,7 @@ fun AgendaScreen(navController: NavController) {
                 CircularProgressIndicator()
             }
         } else {
+            // Vue en grille (de 2)
             WeeklyAgendaView(
                 modifier = Modifier.padding(innerPadding),
                 events = events,
@@ -111,15 +161,20 @@ fun AgendaScreen(navController: NavController) {
 
 
 
-
         if (showAddDialog) {
             AddEventDialog(
                 onDismiss = { showAddDialog = false },
                 onConfirm = { newEvent ->
-                    val newEventId = eventsRef.push().key
-                    if (newEventId != null) {
-                        newEvent.id = newEventId
-                        eventsRef.child(newEventId).setValue(newEvent)
+                    // Ajoute les métadonnées utilisateur
+                    newEvent.createdBy = currentUser?.uid ?: ""
+                    newEvent.createdByName = userName
+                    newEvent.createdAt = System.currentTimeMillis()
+                    
+                    val dayRef = agendaRef.child(newEvent.day)
+                    val eventId = dayRef.push().key
+                    if (eventId != null) {
+                        newEvent.id = eventId
+                        dayRef.child(eventId).setValue(newEvent)
                     }
                     showAddDialog = false
                 }
@@ -127,17 +182,20 @@ fun AgendaScreen(navController: NavController) {
         }
 
         if (selectedEvent != null) {
+
             EventDetailsDialog(
                 event = selectedEvent!!,
-                onDismiss = { selectedEvent = null }, 
+                onDismiss = { selectedEvent = null },
                 onDelete = {
-                    eventsRef.child(selectedEvent!!.id).removeValue()
+
+                    agendaRef.child(selectedEvent!!.day).child(selectedEvent!!.id).removeValue()
                     selectedEvent = null
                 }
             )
         }
     }
 }
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -161,6 +219,7 @@ fun AddEventDialog(onDismiss: () -> Unit, onConfirm: (Event) -> Unit) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
 
                 ExposedDropdownMenuBox(expanded = expandedDay, onExpandedChange = { expandedDay = !expandedDay }) {
                     OutlinedTextField(
@@ -244,6 +303,7 @@ fun WeeklyAgendaView(
                 ) {
                     HourCell(hour = "$hour:00")
                     daysOfWeek.forEach { day ->
+
                         val event = events.find { it.day == day.name && it.hour == hour }
                         DayCell(
                             modifier = Modifier.weight(1f),

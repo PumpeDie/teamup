@@ -24,6 +24,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
+import com.teamup.app.data.ChatRepository
 
 
 data class Task(
@@ -31,7 +32,12 @@ data class Task(
     var title: String = "",
     var dueDate: String = "",
     var completed: Boolean = false,
-    var completedByUserName: String? = null
+    var completedByUserName: String? = null,
+    var createdBy: String = "",
+    var createdByName: String = "",
+    var assignedTo: String? = null,
+    var assignedToName: String? = null,
+    var createdAt: Long = System.currentTimeMillis()
 )
 
 
@@ -39,8 +45,36 @@ data class Task(
 @Composable
 fun TasksScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
-    val tasksRef = FirebaseDatabase.getInstance().getReference("tasks")
+    val userId = auth.currentUser?.uid
+    var teamId by remember { mutableStateOf<String?>(null) }
+    var teamName by remember { mutableStateOf("Chargement...") }
+    val userName by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser?.email?.substringBefore('@') ?: "Utilisateur")}
 
+
+    LaunchedEffect(userId) {
+        if (userId != null) {
+            val team = ChatRepository.getUserTeam()
+            teamId = team?.teamId
+            teamName = team?.teamName ?: "Aucun groupe"
+        }
+    }
+
+    if (teamId == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    if (teamId!!.isBlank()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Veuillez d'abord créer ou rejoindre un Groupe de Connexion.")
+        }
+        return
+    }
+
+    val database = FirebaseDatabase.getInstance()
+    val tasksRef = database.getReference("teams").child(teamId!!).child("tasks")
     val currentUser = auth.currentUser
     val currentUserName = currentUser?.email ?: "Utilisateur Inconnu"
 
@@ -50,7 +84,7 @@ fun TasksScreen(navController: NavController) {
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(teamId) {
         tasksRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 tasks.clear()
@@ -77,7 +111,7 @@ fun TasksScreen(navController: NavController) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Liste des Tâches",
+                        text = "Tâches - $teamName",
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -122,13 +156,13 @@ fun TasksScreen(navController: NavController) {
                 )
             }
         } else {
-           LazyColumn(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(top = 8.dp)
-           ) {
+            ) {
                 items(tasks) { task ->
                     TaskItem(
                         task = task,
@@ -156,7 +190,12 @@ fun TasksScreen(navController: NavController) {
                         title = title,
                         dueDate = date,
                         completed = false,
-                        completedByUserName = null
+                        completedByUserName = null,
+                        createdBy = currentUser?.uid ?: "",
+                        createdByName = userName,
+                        assignedTo = null,
+                        assignedToName = null,
+                        createdAt = System.currentTimeMillis()
                     )
                     tasksRef.child(newTaskId).setValue(newTask)
                 }

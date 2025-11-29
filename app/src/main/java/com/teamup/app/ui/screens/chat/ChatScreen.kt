@@ -1,7 +1,5 @@
 package com.teamup.app.ui.screens.chat
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,8 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.PersonAdd
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,526 +19,174 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
-import com.teamup.app.data.ChatGroup
+
 import com.teamup.app.data.ChatMessage
 import com.teamup.app.data.ChatRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ============================================================================
-// LISTE DES GROUPES
-// ============================================================================
 
-/**
- * Écran de liste des groupes de chat
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatListScreen(navController: NavController) {
-    val groups by ChatRepository.getUserGroups().collectAsState(initial = emptyList())
-    var showCreateDialog by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Chats de groupe") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true }
-            ) {
-                Icon(Icons.Default.Add, "Créer un groupe")
-            }
-        }
-    ) { padding ->
-        if (groups.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Group,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Aucun chat de groupe")
-                }
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-                items(groups) { group ->
-                    ChatGroupItem(
-                        group = group,
-                        onClick = { navController.navigate("chat/${group.groupId}") }
-                    )
-                    HorizontalDivider()
-                }
-            }
-        }
-    }
-    
-    // Dialog de création
-    if (showCreateDialog) {
-        CreateGroupDialog(
-            onDismiss = { showCreateDialog = false },
-            onCreateGroup = { groupName ->
-                coroutineScope.launch {
-                    ChatRepository.createGroup(groupName).onSuccess { groupId ->
-                        showCreateDialog = false
-                        navController.navigate("chat/$groupId")
-                    }
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun ChatGroupItem(group: ChatGroup, onClick: () -> Unit) {
-    var showMenu by remember { mutableStateOf(false) }
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    
-    Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { showMenu = true }
-                )
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Group, null)
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = group.groupName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                if (group.lastMessage.isNotEmpty()) {
-                    Text(
-                        text = group.lastMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            
-            if (group.lastMessageTime > 0) {
-                Text(
-                    text = formatTimestamp(group.lastMessageTime),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        
-        // Menu contextuel
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("Renommer") },
-                onClick = {
-                    showMenu = false
-                    showRenameDialog = true
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Supprimer") },
-                onClick = {
-                    showMenu = false
-                    showDeleteDialog = true
-                }
-            )
-        }
-    }
-    
-    // Dialog renommer
-    if (showRenameDialog) {
-        RenameGroupDialog(
-            currentName = group.groupName,
-            onDismiss = { showRenameDialog = false },
-            onRename = { newName ->
-                coroutineScope.launch {
-                    ChatRepository.renameGroup(group.groupId, newName)
-                    showRenameDialog = false
-                }
-            }
-        )
-    }
-    
-    // Dialog supprimer
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Supprimer le groupe ?") },
-            text = { Text("Cette action est irréversible.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            ChatRepository.deleteGroup(group.groupId)
-                            showDeleteDialog = false
-                        }
-                    }
-                ) {
-                    Text("Supprimer", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Annuler")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun RenameGroupDialog(
-    currentName: String,
-    onDismiss: () -> Unit,
-    onRename: (String) -> Unit
+fun ChatScreen(
+    navController: NavController,
+    teamId: String,
+    chatRoomId: String
 ) {
-    var newName by remember { mutableStateOf(currentName) }
+    val scope = rememberCoroutineScope()
+    val auth = FirebaseAuth.getInstance()
+    val currentUserId = auth.currentUser?.uid ?: ""
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Renommer le groupe") },
-        text = {
-            OutlinedTextField(
-                value = newName,
-                onValueChange = { newName = it },
-                label = { Text("Nouveau nom") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onRename(newName) },
-                enabled = newName.isNotBlank() && newName != currentName
-            ) {
-                Text("Renommer")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler")
-            }
-        }
-    )
-}
-
-@Composable
-fun CreateGroupDialog(
-    onDismiss: () -> Unit,
-    onCreateGroup: (String) -> Unit
-) {
-    var groupName by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Créer un groupe") },
-        text = {
-            OutlinedTextField(
-                value = groupName,
-                onValueChange = { groupName = it },
-                label = { Text("Nom du groupe") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onCreateGroup(groupName) },
-                enabled = groupName.isNotBlank()
-            ) {
-                Text("Créer")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler")
-            }
-        }
-    )
-}
-
-// ============================================================================
-// ÉCRAN DE CHAT
-// ============================================================================
-
-/**
- * Écran de conversation d'un groupe
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChatScreen(navController: NavController, groupId: String) {
-    val messages by ChatRepository.getGroupMessages(groupId).collectAsState(initial = emptyList())
-    var messageText by remember { mutableStateOf("") }
-    var groupName by remember { mutableStateOf("Chargement...") }
-    var memberCount by remember { mutableStateOf(0) }
-    var showAddMemberDialog by remember { mutableStateOf(false) }
+    var messages by remember { mutableStateOf(emptyList<ChatMessage>()) }
+    var chatName by remember { mutableStateOf("Chargement...") }
+    var messageInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    
-    LaunchedEffect(groupId) {
-        ChatRepository.getGroup(groupId).onSuccess { group ->
-            groupName = group.groupName
-            memberCount = group.memberIds.size
+
+     LaunchedEffect(chatRoomId) {
+        ChatRepository.getChatRoomMessages(teamId, chatRoomId)
+            .collect { fetchedMessages ->
+                messages = fetchedMessages
+                if (messages.isNotEmpty()) {
+                    listState.scrollToItem(messages.size - 1)
+                }
+            }
+    }
+
+    // Récupère le nom du chat room
+    LaunchedEffect(teamId, chatRoomId) {
+        ChatRepository.getTeamChatRooms(teamId).collect { rooms ->
+            val room = rooms.find { it.chatRoomId == chatRoomId }
+            chatName = room?.chatName ?: "Chat"
         }
     }
-    
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
-    }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Column {
-                        Text(groupName)
-                        Text(
-                            text = "$memberCount membre${if (memberCount > 1) "s" else ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                title = {
+                    Text(
+                        text = chatName,
+                        style = MaterialTheme.typography.titleLarge,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showAddMemberDialog = true }) {
-                        Icon(Icons.Default.PersonAdd, "Ajouter un membre")
+                    IconButton(onClick = { /* TODO: Afficher les membres du TeamGroup */ }) {
+                        Icon(Icons.Default.Group, contentDescription = "Détails du groupe de connexion")
                     }
                 }
             )
         },
         bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 3.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = messageText,
-                        onValueChange = { messageText = it },
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
-                        placeholder = { Text("Message...") },
-                        maxLines = 3,
-                        singleLine = false
-                    )
-                    
-                    IconButton(
-                        onClick = {
-                            if (messageText.isNotBlank()) {
-                                coroutineScope.launch {
-                                    ChatRepository.sendMessage(groupId, messageText)
-                                    messageText = ""
-                                }
-                            }
-                        },
-                        enabled = messageText.isNotBlank()
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Envoyer",
-                            tint = if (messageText.isNotBlank()) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    ) { padding ->
-        if (messages.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Aucun message", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            LazyColumn(
-                state = listState,
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .imePadding(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(messages) { message ->
-                    MessageBubble(message)
-                }
-            }
-        }
-    }
-    
-    // Dialog pour ajouter un membre
-    if (showAddMemberDialog) {
-        AddMemberDialog(
-            groupId = groupId,
-            onDismiss = { showAddMemberDialog = false }
-        )
-    }
-}
-
-@Composable
-fun AddMemberDialog(
-    groupId: String,
-    onDismiss: () -> Unit
-) {
-    var emailToAdd by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("") }
-    val coroutineScope = rememberCoroutineScope()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ajouter un membre") },
-        text = {
-            Column {
                 OutlinedTextField(
-                    value = emailToAdd,
-                    onValueChange = { emailToAdd = it },
-                    label = { Text("Email de l'utilisateur") },
+                    value = messageInput,
+                    onValueChange = { messageInput = it },
+                    label = { Text("Message...") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.weight(1f)
                 )
-                if (message.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (message.contains("Erreur")) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = {
+                        if (messageInput.isNotBlank()) {
+                            scope.launch {
+                                ChatRepository.sendMessage(chatRoomId, teamId, messageInput)
+                                messageInput = ""
+                            }
                         }
-                    )
+                    },
+                    enabled = messageInput.isNotBlank()
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    coroutineScope.launch {
-                        ChatRepository.addMemberToGroup(groupId, emailToAdd).onSuccess {
-                            message = "Membre ajouté !"
-                            emailToAdd = ""
-                        }.onFailure { e ->
-                            message = "Erreur : ${e.message}"
-                        }
-                    }
-                },
-                enabled = emailToAdd.isNotBlank()
-            ) {
-                Text("Ajouter")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Fermer")
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 8.dp),
+            contentPadding = PaddingValues(bottom = 8.dp)
+        ) {
+            items(messages) { message ->
+                MessageBubble(message = message, currentUserId = currentUserId)
             }
         }
-    )
+    }
 }
 
+
 @Composable
-fun MessageBubble(message: ChatMessage) {
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+fun MessageBubble(message: ChatMessage, currentUserId: String) {
     val isCurrentUser = message.userId == currentUserId
-    
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start
     ) {
-        Column(
+        Card(
+            shape = if (isCurrentUser) {
+                RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp)
+            } else {
+                RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
+            },
+            colors = CardDefaults.cardColors(
+                containerColor = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = if (isCurrentUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            elevation = CardDefaults.cardElevation(1.dp),
             modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(
-                    color = if (isCurrentUser) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    shape = RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isCurrentUser) 16.dp else 4.dp,
-                        bottomEnd = if (isCurrentUser) 4.dp else 16.dp
-                    )
+                .widthIn(max = 300.dp)
+                .combinedClickable(
+                    onClick = { /* TODO: Afficher l'heure complète / Répondre */ },
+                    onLongClick = { /* TODO: Copier / Supprimer */ }
                 )
-                .padding(12.dp)
         ) {
-            if (!isCurrentUser) {
+            Column(modifier = Modifier.padding(10.dp)) {
+
+                if (!isCurrentUser) {
+                    Text(
+                        text = message.userName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+                }
+
+                Text(text = message.content, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
-                    text = message.userName,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    text = formatMessageTime(message.timestamp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isCurrentUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(if (isCurrentUser) Alignment.End else Alignment.Start)
                 )
             }
-            
-            Text(text = message.content, style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            Text(
-                text = formatMessageTime(message.timestamp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(if (isCurrentUser) Alignment.End else Alignment.Start)
-            )
         }
     }
 }
-
-// ============================================================================
-// UTILITAIRES
-// ============================================================================
 
 private fun formatTimestamp(timestamp: Long): String {
     val diff = System.currentTimeMillis() - timestamp
