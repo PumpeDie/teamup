@@ -12,9 +12,11 @@ import kotlinx.coroutines.tasks.await
 data class TeamGroup(
     val teamId: String = "",
     val teamName: String = "",
+    val creatorId: String = "",
+    val adminIds: List<String> = emptyList(),
     val memberIds: List<String> = emptyList()
 ) {
-    constructor() : this("", "", emptyList())
+    constructor() : this("", "", "", emptyList(), emptyList())
 }
 
 
@@ -118,6 +120,8 @@ object ChatRepository {
             val team = TeamGroup(
                 teamId = teamId,
                 teamName = teamName,
+                creatorId = user.uid,
+                adminIds = listOf(user.uid), // Le créateur est automatiquement admin
                 memberIds = listOf(user.uid)
             )
 
@@ -336,12 +340,24 @@ object ChatRepository {
     }
 
     /**
-     * Renomme un groupe
+     * Renomme un groupe (seulement pour le créateur)
      */
     suspend fun renameTeam(teamId: String, newName: String): Result<Unit> {
         return try {
+            val userId = auth.currentUser?.uid 
+                ?: return Result.failure(Exception("Utilisateur non connecté"))
+
             if (newName.isBlank()) {
                 return Result.failure(Exception("Le nom ne peut pas être vide"))
+            }
+
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            // Vérifie que l'utilisateur est le créateur
+            if (team.creatorId != userId) {
+                return Result.failure(Exception("Seul le créateur peut renommer le groupe"))
             }
 
             teamsRef.child(teamId).child("teamName").setValue(newName).await()
@@ -366,25 +382,172 @@ object ChatRepository {
             val team = snapshot.getValue(TeamGroup::class.java)
                 ?: return Result.failure(Exception("Groupe introuvable"))
 
+            // Le créateur ne peut pas quitter son groupe (il doit le supprimer)
+            if (team.creatorId == userId) {
+                return Result.failure(Exception("Le créateur ne peut pas quitter le groupe. Supprimez-le à la place."))
+            }
+
             if (!team.memberIds.contains(userId)) {
                 return Result.failure(Exception("Vous n'êtes pas membre de ce groupe"))
             }
 
-            // Retire l'utilisateur de la liste des membres
+            // Retire l'utilisateur de la liste des membres et admins
             val updatedMembers = team.memberIds.filter { it != userId }
+            val updatedAdmins = team.adminIds.filter { it != userId }
             
-            if (updatedMembers.isEmpty()) {
-                // Si c'était le dernier membre, on supprime le groupe
-                teamsRef.child(teamId).removeValue().await()
-                Log.d("ChatRepository", "Last member left, team deleted: $teamId")
-            } else {
-                teamsRef.child(teamId).child("memberIds").setValue(updatedMembers).await()
-                Log.d("ChatRepository", "User left team successfully: $userId from $teamId")
-            }
+            teamsRef.child(teamId).child("memberIds").setValue(updatedMembers).await()
+            teamsRef.child(teamId).child("adminIds").setValue(updatedAdmins).await()
+            Log.d("ChatRepository", "User left team successfully: $userId from $teamId")
 
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("ChatRepository", "Error leaving team: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Vérifie si l'utilisateur est le créateur du groupe
+     */
+    suspend fun isCreator(teamId: String): Boolean {
+        return try {
+            val userId = auth.currentUser?.uid ?: return false
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+            team?.creatorId == userId
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error checking creator status: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Vérifie si l'utilisateur est admin du groupe
+     */
+    suspend fun isAdmin(teamId: String): Boolean {
+        return try {
+            val userId = auth.currentUser?.uid ?: return false
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+            team?.adminIds?.contains(userId) ?: false
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error checking admin status: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Promouvoir un membre au rang d'admin (seulement pour le créateur)
+     */
+    suspend fun promoteToAdmin(teamId: String, userId: String): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.failure(Exception("Utilisateur non connecté"))
+
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            if (team.creatorId != currentUserId) {
+                return Result.failure(Exception("Seul le créateur peut promouvoir des admins"))
+            }
+
+            if (!team.memberIds.contains(userId)) {
+                return Result.failure(Exception("Cet utilisateur n'est pas membre du groupe"))
+            }
+
+            if (team.adminIds.contains(userId)) {
+                return Result.failure(Exception("Cet utilisateur est déjà admin"))
+            }
+
+            val updatedAdmins = team.adminIds + userId
+            teamsRef.child(teamId).child("adminIds").setValue(updatedAdmins).await()
+            Log.d("ChatRepository", "User promoted to admin: $userId in $teamId")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error promoting to admin: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Rétrograder un admin au rang de membre (seulement pour le créateur)
+     */
+    suspend fun demoteFromAdmin(teamId: String, userId: String): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.failure(Exception("Utilisateur non connecté"))
+
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            if (team.creatorId != currentUserId) {
+                return Result.failure(Exception("Seul le créateur peut rétrograder des admins"))
+            }
+
+            if (team.creatorId == userId) {
+                return Result.failure(Exception("Le créateur ne peut pas être rétrogradé"))
+            }
+
+            if (!team.adminIds.contains(userId)) {
+                return Result.failure(Exception("Cet utilisateur n'est pas admin"))
+            }
+
+            val updatedAdmins = team.adminIds.filter { it != userId }
+            teamsRef.child(teamId).child("adminIds").setValue(updatedAdmins).await()
+            Log.d("ChatRepository", "User demoted from admin: $userId in $teamId")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error demoting from admin: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Exclure un membre du groupe (créateur ou admin)
+     */
+    suspend fun removeMember(teamId: String, userId: String): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.failure(Exception("Utilisateur non connecté"))
+
+            val snapshot = teamsRef.child(teamId).get().await()
+            val team = snapshot.getValue(TeamGroup::class.java)
+                ?: return Result.failure(Exception("Groupe introuvable"))
+
+            // Seul le créateur ou un admin peut exclure
+            if (team.creatorId != currentUserId && !team.adminIds.contains(currentUserId)) {
+                return Result.failure(Exception("Seuls le créateur et les admins peuvent exclure des membres"))
+            }
+
+            // Ne peut pas exclure le créateur
+            if (team.creatorId == userId) {
+                return Result.failure(Exception("Le créateur ne peut pas être exclu"))
+            }
+
+            // Un admin ne peut pas exclure un autre admin (seul le créateur peut)
+            if (team.adminIds.contains(userId) && team.creatorId != currentUserId) {
+                return Result.failure(Exception("Seul le créateur peut exclure un admin"))
+            }
+
+            if (!team.memberIds.contains(userId)) {
+                return Result.failure(Exception("Cet utilisateur n'est pas membre du groupe"))
+            }
+
+            // Retire l'utilisateur de la liste des membres et admins
+            val updatedMembers = team.memberIds.filter { it != userId }
+            val updatedAdmins = team.adminIds.filter { it != userId }
+            
+            teamsRef.child(teamId).child("memberIds").setValue(updatedMembers).await()
+            teamsRef.child(teamId).child("adminIds").setValue(updatedAdmins).await()
+            Log.d("ChatRepository", "User removed from team: $userId from $teamId")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error removing member: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -401,8 +564,8 @@ object ChatRepository {
             val team = snapshot.getValue(TeamGroup::class.java)
                 ?: return Result.failure(Exception("Groupe introuvable"))
 
-            // Vérifie que l'utilisateur est le premier membre (créateur)
-            if (team.memberIds.firstOrNull() != userId) {
+            // Vérifie que l'utilisateur est le créateur
+            if (team.creatorId != userId) {
                 return Result.failure(Exception("Seul le créateur peut supprimer le groupe"))
             }
 

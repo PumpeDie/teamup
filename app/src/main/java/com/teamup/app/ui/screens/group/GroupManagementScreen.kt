@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.People
@@ -42,6 +43,10 @@ fun GroupManagementScreen(navController: NavController) {
     var membersDetails by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showLeaveDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var isCreator by remember { mutableStateOf(false) }
+    var isAdmin by remember { mutableStateOf(false) }
+    var memberToRemove by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(Unit) {
         team = ChatRepository.getUserTeam()
@@ -49,6 +54,8 @@ fun GroupManagementScreen(navController: NavController) {
             ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
                 membersDetails = members
             }
+            isCreator = ChatRepository.isCreator(it.teamId)
+            isAdmin = ChatRepository.isAdmin(it.teamId)
         }
         isLoading = false
     }
@@ -100,9 +107,49 @@ fun GroupManagementScreen(navController: NavController) {
             GroupInfoContent(
                 team = team!!,
                 membersDetails = membersDetails,
+                isCreator = isCreator,
+                isAdmin = isAdmin,
                 context = context,
                 onRenameClick = { showRenameDialog = true },
                 onLeaveClick = { showLeaveDialog = true },
+                onDeleteClick = { showDeleteDialog = true },
+                onRemoveMember = { member -> memberToRemove = member },
+                onPromoteToAdmin = { userId ->
+                    scope.launch {
+                        ChatRepository.promoteToAdmin(team!!.teamId, userId).fold(
+                            onSuccess = {
+                                Toast.makeText(context, "Membre promu admin !", Toast.LENGTH_SHORT).show()
+                                team = ChatRepository.getUserTeam()
+                                team?.let {
+                                    ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+                                        membersDetails = members
+                                    }
+                                }
+                            },
+                            onFailure = { e ->
+                                Toast.makeText(context, "Erreur : ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                },
+                onDemoteFromAdmin = { userId ->
+                    scope.launch {
+                        ChatRepository.demoteFromAdmin(team!!.teamId, userId).fold(
+                            onSuccess = {
+                                Toast.makeText(context, "Admin rétrogradé !", Toast.LENGTH_SHORT).show()
+                                team = ChatRepository.getUserTeam()
+                                team?.let {
+                                    ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+                                        membersDetails = members
+                                    }
+                                }
+                            },
+                            onFailure = { e ->
+                                Toast.makeText(context, "Erreur : ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                },
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -150,6 +197,54 @@ fun GroupManagementScreen(navController: NavController) {
                 }
             )
         }
+
+        if (showDeleteDialog && team != null) {
+            DeleteGroupDialog(
+                onDismiss = { showDeleteDialog = false },
+                onConfirm = {
+                    scope.launch {
+                        ChatRepository.deleteTeam(team!!.teamId).fold(
+                            onSuccess = {
+                                Toast.makeText(context, "Groupe supprimé", Toast.LENGTH_SHORT).show()
+                                navController.navigate("groupSelection") {
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                }
+                            },
+                            onFailure = { e ->
+                                Toast.makeText(context, "Erreur : ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                }
+            )
+        }
+
+        memberToRemove?.let { (userId, username) ->
+            RemoveMemberDialog(
+                username = username,
+                onDismiss = { memberToRemove = null },
+                onConfirm = {
+                    scope.launch {
+                        ChatRepository.removeMember(team!!.teamId, userId).fold(
+                            onSuccess = {
+                                Toast.makeText(context, "$username a été exclu du groupe", Toast.LENGTH_SHORT).show()
+                                team = ChatRepository.getUserTeam()
+                                team?.let {
+                                    ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+                                        membersDetails = members
+                                    }
+                                }
+                                memberToRemove = null
+                            },
+                            onFailure = { e ->
+                                Toast.makeText(context, "Erreur : ${e.message}", Toast.LENGTH_SHORT).show()
+                                memberToRemove = null
+                            }
+                        )
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -157,9 +252,15 @@ fun GroupManagementScreen(navController: NavController) {
 fun GroupInfoContent(
     team: TeamGroup,
     membersDetails: List<Pair<String, String>>,
+    isCreator: Boolean,
+    isAdmin: Boolean,
     context: Context,
     onRenameClick: () -> Unit,
     onLeaveClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onRemoveMember: (Pair<String, String>) -> Unit,
+    onPromoteToAdmin: (String) -> Unit,
+    onDemoteFromAdmin: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -199,12 +300,15 @@ fun GroupInfoContent(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-                IconButton(onClick = onRenameClick) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Renommer",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                // Seul le créateur peut renommer
+                if (isCreator) {
+                    IconButton(onClick = onRenameClick) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Renommer",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
             }
         }
@@ -294,39 +398,114 @@ fun GroupInfoContent(
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
 
                 // Liste des membres
-                membersDetails.forEachIndexed { index, (userId, userEmail) ->
-                    Row(
+                val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                membersDetails.forEach { (userId, username) ->
+                    val isMemberCreator = team.creatorId == userId
+                    val isMemberAdmin = team.adminIds.contains(userId)
+                    val isCurrentUser = userId == currentUserId
+                    
+                    ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 4.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = userEmail,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (userId == com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "(Vous)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
+                                    text = username,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
                                 )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isCurrentUser) {
+                                        Text(
+                                            text = "(Vous)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    if (isMemberCreator) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = MaterialTheme.shapes.small
+                                        ) {
+                                            Text(
+                                                text = "👑 Créateur",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+                                    } else if (isMemberAdmin) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                            shape = MaterialTheme.shapes.small
+                                        ) {
+                                            Text(
+                                                text = "⭐ Admin",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        if (index == 0) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Text(
-                                    text = "Créateur",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                            
+                            // Actions pour le créateur uniquement
+                            if (isCreator && !isCurrentUser) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    // Promouvoir/Rétrograder admin
+                                    if (!isMemberCreator) {
+                                        if (isMemberAdmin) {
+                                            TextButton(
+                                                onClick = { onDemoteFromAdmin(userId) },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.tertiary
+                                                )
+                                            ) {
+                                                Text("Rétrograder", style = MaterialTheme.typography.labelSmall)
+                                            }
+                                        } else {
+                                            TextButton(
+                                                onClick = { onPromoteToAdmin(userId) },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            ) {
+                                                Text("Promouvoir", style = MaterialTheme.typography.labelSmall)
+                                            }
+                                        }
+                                    }
+                                    // Exclure
+                                    TextButton(
+                                        onClick = { onRemoveMember(Pair(userId, username)) },
+                                        colors = ButtonDefaults.textButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        )
+                                    ) {
+                                        Text("Exclure", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            } else if (isAdmin && !isCurrentUser && !isMemberAdmin && !isMemberCreator) {
+                                // Admin peut exclure les membres simples
+                                TextButton(
+                                    onClick = { onRemoveMember(Pair(userId, username)) },
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Text("Exclure", style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }
@@ -334,17 +513,33 @@ fun GroupInfoContent(
             }
         }
 
-        // Bouton quitter le groupe
-        OutlinedButton(
-            onClick = onLeaveClick,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            )
-        ) {
-            Icon(Icons.Default.ExitToApp, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Quitter le groupe")
+        // Actions selon le rôle
+        if (isCreator) {
+            // Le créateur peut supprimer le groupe
+            Button(
+                onClick = onDeleteClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(androidx.compose.material.icons.Icons.Default.Delete, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Supprimer le groupe")
+            }
+        } else {
+            // Les membres peuvent quitter
+            OutlinedButton(
+                onClick = onLeaveClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(Icons.Default.ExitToApp, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Quitter le groupe")
+            }
         }
 
         // Note d'information
@@ -437,15 +632,7 @@ fun LeaveGroupDialog(
         },
         title = { Text("Quitter le groupe ?") },
         text = {
-            Column {
-                Text("Vous allez quitter ce groupe.")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Si vous êtes le dernier membre, le groupe sera supprimé définitivement.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
+            Text("Vous allez quitter ce groupe. Vous pourrez le rejoindre à nouveau avec l'ID du groupe.")
         },
         confirmButton = {
             TextButton(
@@ -455,6 +642,90 @@ fun LeaveGroupDialog(
                 )
             ) {
                 Text("Quitter")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        }
+    )
+}
+
+/**
+ * Dialogue de confirmation pour supprimer le groupe
+ */
+@Composable
+fun DeleteGroupDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = { Text("Supprimer le groupe ?") },
+        text = {
+            Column {
+                Text("⚠️ Attention : Cette action est irréversible !")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Toutes les données du groupe seront définitivement supprimées :",
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("• Messages")
+                Text("• Tâches")
+                Text("• Événements de l'agenda")
+                Text("• Liste des membres")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Supprimer définitivement")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        }
+    )
+}
+
+/**
+ * Dialogue de confirmation pour exclure un membre
+ */
+@Composable
+fun RemoveMemberDialog(
+    username: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Exclure $username ?") },
+        text = {
+            Text("Ce membre sera retiré du groupe et perdra l'accès à toutes les données.")
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Exclure")
             }
         },
         dismissButton = {
