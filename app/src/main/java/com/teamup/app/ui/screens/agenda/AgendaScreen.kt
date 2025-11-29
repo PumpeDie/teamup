@@ -55,7 +55,7 @@ fun AgendaScreen(navController: NavController) {
 
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
-    val userName = currentUser?.email?.substringBefore('@') ?: "Utilisateur"
+    var userName by remember { mutableStateOf("Utilisateur") }
     var teamId by remember { mutableStateOf<String?>(null) }
     var teamName by remember { mutableStateOf("Chargement...") }
 
@@ -63,6 +63,15 @@ fun AgendaScreen(navController: NavController) {
         val team = ChatRepository.getUserTeam()
         teamId = team?.teamId
         teamName = team?.teamName ?: "Aucun groupe"
+        
+        // Récupérer le username depuis Firebase Database
+        currentUser?.uid?.let { userId ->
+            val database = FirebaseDatabase.getInstance()
+            val usersRef = database.getReference("users").child(userId)
+            usersRef.get().addOnSuccessListener { snapshot ->
+                userName = snapshot.child("username").getValue(String::class.java) ?: "Utilisateur"
+            }
+        }
     }
 
     if (teamId == null) {

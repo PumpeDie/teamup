@@ -17,6 +17,7 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     val isLoginMode = viewModel.isLoginMode
@@ -36,6 +37,16 @@ fun LoginScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (!isLoginMode) {
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Nom d'utilisateur") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         OutlinedTextField(
             value = email,
@@ -66,7 +77,7 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                viewModel.authenticate(email, password) {
+                viewModel.authenticate(email, password, username) {
                      navController.navigate("groupSelection") {
                         popUpTo("login") { inclusive = true }
                     }

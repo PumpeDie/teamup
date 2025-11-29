@@ -48,14 +48,20 @@ fun TasksScreen(navController: NavController) {
     val userId = auth.currentUser?.uid
     var teamId by remember { mutableStateOf<String?>(null) }
     var teamName by remember { mutableStateOf("Chargement...") }
-    val userName by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser?.email?.substringBefore('@') ?: "Utilisateur")}
-
+    var userName by remember { mutableStateOf("Utilisateur") }
 
     LaunchedEffect(userId) {
         if (userId != null) {
             val team = ChatRepository.getUserTeam()
             teamId = team?.teamId
             teamName = team?.teamName ?: "Aucun groupe"
+            
+            // Récupérer le username depuis Firebase Database
+            val database = FirebaseDatabase.getInstance()
+            val usersRef = database.getReference("users").child(userId)
+            usersRef.get().addOnSuccessListener { snapshot ->
+                userName = snapshot.child("username").getValue(String::class.java) ?: "Utilisateur"
+            }
         }
     }
 

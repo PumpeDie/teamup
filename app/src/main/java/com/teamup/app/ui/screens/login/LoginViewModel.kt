@@ -24,13 +24,17 @@ class LoginViewModel(
         message = ""
     }
 
-    fun authenticate(email: String, password: String, onSuccess: () -> Unit) {
+    fun authenticate(email: String, password: String, username: String = "", onSuccess: () -> Unit) {
         if (email.isBlank() || password.isBlank()) {
             message = "Veuillez remplir tous les champs"
             return
         }
 
         if (!isLoginMode) {
+            if (username.isBlank()) {
+                message = "Veuillez entrer un nom d'utilisateur"
+                return
+            }
             val (valid, errorMsg) = isValidPassword(password)
             if (!valid) {
                 message = errorMsg
@@ -43,7 +47,7 @@ class LoginViewModel(
             val result = if (isLoginMode)
                 authRepository.signIn(email, password)
             else
-                authRepository.register(email, password)
+                authRepository.register(email, password, username)
 
             result.fold(
                 onSuccess = {
