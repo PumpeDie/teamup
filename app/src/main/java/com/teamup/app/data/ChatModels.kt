@@ -263,6 +263,12 @@ object ChatRepository {
     suspend fun sendMessage(chatRoomId: String, teamId: String, content: String): Result<Unit> {
         return try {
             val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
+            
+            // Récupère le username depuis Firebase Database
+            val usersRef = database.getReference("users")
+            val userSnapshot = usersRef.child(user.uid).get().await()
+            val username = userSnapshot.child("username").getValue(String::class.java)
+                ?: user.email?.substringBefore("@") ?: "Utilisateur"
 
             val messagesRef = teamsRef.child(teamId).child("messages").child(chatRoomId)
             val messageId = messagesRef.push().key
@@ -272,7 +278,7 @@ object ChatRepository {
                 messageId = messageId,
                 chatRoomId = chatRoomId,
                 userId = user.uid,
-                userName = user.email?.substringBefore("@") ?: "Utilisateur",
+                userName = username,
                 content = content,
                 timestamp = System.currentTimeMillis()
             )
@@ -299,7 +305,7 @@ object ChatRepository {
 
     /**
      * Récupère les informations détaillées des membres du groupe
-     * Retourne une liste de Pair<userId, email>
+     * Retourne une liste de Pair<userId, username>
      */
     suspend fun getTeamMembersDetails(teamId: String): Result<List<Pair<String, String>>> {
         return try {
@@ -308,19 +314,16 @@ object ChatRepository {
                 ?: return Result.failure(Exception("Groupe introuvable"))
 
             val membersDetails = mutableListOf<Pair<String, String>>()
+            val usersRef = database.getReference("users")
             
             for (userId in team.memberIds) {
-                // Récupère l'utilisateur depuis Firebase Auth
                 try {
-                    val userEmail = if (userId == auth.currentUser?.uid) {
-                        auth.currentUser?.email ?: "Utilisateur inconnu"
-                    } else {
-                        // Pour les autres utilisateurs, on affiche un email générique
-                        // car Firebase Auth ne permet pas de récupérer les infos d'autres users facilement
-                        "Membre (${userId.take(8)})"
-                    }
-                    membersDetails.add(Pair(userId, userEmail))
+                    val userSnapshot = usersRef.child(userId).get().await()
+                    val username = userSnapshot.child("username").getValue(String::class.java)
+                        ?: "Utilisateur inconnu"
+                    membersDetails.add(Pair(userId, username))
                 } catch (e: Exception) {
+                    Log.e("ChatRepository", "Error fetching username for $userId: ${e.message}")
                     membersDetails.add(Pair(userId, "Utilisateur inconnu"))
                 }
             }

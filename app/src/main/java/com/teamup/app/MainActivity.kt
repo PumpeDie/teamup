@@ -15,7 +15,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
@@ -26,7 +25,6 @@ import com.teamup.app.ui.screens.tasks.TasksScreen
 import com.teamup.app.ui.screens.chat.ChatListScreen
 import com.teamup.app.ui.screens.chat.ChatScreen
 import com.teamup.app.ui.screens.agenda.AgendaScreen
-import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
@@ -35,8 +33,6 @@ class MainActivity : ComponentActivity() {
         FirebaseApp.initializeApp(this)
 
         FirebaseDatabase.getInstance().setPersistenceEnabled(true)
-
-        val database = FirebaseDatabase.getInstance()
 
         setContent {
             AppNavigation()
@@ -108,7 +104,6 @@ fun AppNavigation() {
 
 @Composable
 fun LoadingGroupCheckScreen(navController: NavController) {
-    val coroutineScope = rememberCoroutineScope()
     var isChecking by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
