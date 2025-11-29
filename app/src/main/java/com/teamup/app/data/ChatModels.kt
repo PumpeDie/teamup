@@ -47,9 +47,6 @@ object ChatRepository {
 
     private val database = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
-
-    private val messagesRef = database.getReference("messages")
-
     private val teamsRef = database.getReference("teams")
 
 
@@ -223,7 +220,12 @@ object ChatRepository {
     }
 
 
-    fun getChatRoomMessages(chatRoomId: String): Flow<List<ChatMessage>> = callbackFlow {
+    /**
+     * Récupère les messages d'un chat room en temps réel.
+     */
+    fun getChatRoomMessages(teamId: String, chatRoomId: String): Flow<List<ChatMessage>> = callbackFlow {
+        val messagesRef = teamsRef.child(teamId).child("messages").child(chatRoomId)
+        
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val messages = snapshot.children.mapNotNull {
@@ -242,16 +244,20 @@ object ChatRepository {
             }
         }
 
-        messagesRef.child(chatRoomId).addValueEventListener(listener)
-        awaitClose { messagesRef.child(chatRoomId).removeEventListener(listener) }
+        messagesRef.addValueEventListener(listener)
+        awaitClose { messagesRef.removeEventListener(listener) }
     }
 
 
+    /**
+     * Envoie un message dans un chat room.
+     */
     suspend fun sendMessage(chatRoomId: String, teamId: String, content: String): Result<Unit> {
         return try {
             val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
 
-            val messageId = messagesRef.child(chatRoomId).push().key
+            val messagesRef = teamsRef.child(teamId).child("messages").child(chatRoomId)
+            val messageId = messagesRef.push().key
                 ?: return Result.failure(Exception("Failed to generate ID"))
 
             val message = ChatMessage(
@@ -263,9 +269,9 @@ object ChatRepository {
                 timestamp = System.currentTimeMillis()
             )
 
-            messagesRef.child(chatRoomId).child(messageId).setValue(message).await()
+            messagesRef.child(messageId).setValue(message).await()
 
-
+            // Met à jour le dernier message dans le chatRoom
             val updates = mapOf(
                 "lastMessage" to content,
                 "lastMessageTime" to message.timestamp

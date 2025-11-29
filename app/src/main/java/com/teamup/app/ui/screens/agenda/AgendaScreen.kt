@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -40,7 +41,10 @@ data class Event constructor(
     var id: String = "",
     var title: String = "",
     var day: String = DayOfWeek.MONDAY.name,
-    var hour: Int = 8
+    var hour: Int = 8,
+    var createdBy: String = "",
+    var createdByName: String = "",
+    var createdAt: Long = System.currentTimeMillis()
 )
 
 
@@ -49,7 +53,9 @@ data class Event constructor(
 @Composable
 fun AgendaScreen(navController: NavController) {
 
-
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+    val userName = currentUser?.email?.substringBefore('@') ?: "Utilisateur"
     var teamId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -157,8 +163,12 @@ fun AgendaScreen(navController: NavController) {
             AddEventDialog(
                 onDismiss = { showAddDialog = false },
                 onConfirm = { newEvent ->
-
-                    val dayRef = agendaRef.child(newEvent.day) // newEvent.day est "MONDAY", etc.
+                    // Ajoute les métadonnées utilisateur
+                    newEvent.createdBy = currentUser?.uid ?: ""
+                    newEvent.createdByName = userName
+                    newEvent.createdAt = System.currentTimeMillis()
+                    
+                    val dayRef = agendaRef.child(newEvent.day)
                     val eventId = dayRef.push().key
                     if (eventId != null) {
                         newEvent.id = eventId

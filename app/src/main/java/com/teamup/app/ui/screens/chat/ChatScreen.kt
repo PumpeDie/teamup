@@ -45,7 +45,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
 
      LaunchedEffect(chatRoomId) {
-        ChatRepository.getChatRoomMessages(chatRoomId)
+        ChatRepository.getChatRoomMessages(teamId, chatRoomId)
             .collect { fetchedMessages ->
                 messages = fetchedMessages
                 if (messages.isNotEmpty()) {

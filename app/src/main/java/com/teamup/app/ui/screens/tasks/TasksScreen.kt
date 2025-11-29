@@ -32,7 +32,12 @@ data class Task(
     var title: String = "",
     var dueDate: String = "",
     var completed: Boolean = false,
-    var completedByUserName: String? = null
+    var completedByUserName: String? = null,
+    var createdBy: String = "",
+    var createdByName: String = "",
+    var assignedTo: String? = null,
+    var assignedToName: String? = null,
+    var createdAt: Long = System.currentTimeMillis()
 )
 
 
@@ -182,7 +187,12 @@ fun TasksScreen(navController: NavController) {
                         title = title,
                         dueDate = date,
                         completed = false,
-                        completedByUserName = null
+                        completedByUserName = null,
+                        createdBy = currentUser?.uid ?: "",
+                        createdByName = userName,
+                        assignedTo = null,
+                        assignedToName = null,
+                        createdAt = System.currentTimeMillis()
                     )
                     tasksRef.child(newTaskId).setValue(newTask)
                 }
