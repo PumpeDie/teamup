@@ -28,7 +28,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
@@ -60,7 +60,7 @@ fun AgendaScreen(navController: NavController) {
     var teamName by remember { mutableStateOf("Chargement...") }
 
     LaunchedEffect(Unit) {
-        val team = ChatRepository.getUserTeam()
+        val team = TeamRepository.getUserTeam()
         teamId = team?.teamId
         teamName = team?.teamName ?: "Aucun groupe"
         

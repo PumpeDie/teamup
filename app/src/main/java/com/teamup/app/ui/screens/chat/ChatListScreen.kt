@@ -14,8 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
-import com.teamup.app.data.ChatRepository
 import com.teamup.app.data.ChatRoom
+import com.teamup.app.data.repository.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -32,7 +33,7 @@ fun ChatListScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        val team = ChatRepository.getUserTeam()
+        val team = TeamRepository.getUserTeam()
         teamId = team?.teamId
         teamName = team?.teamName ?: "Aucun groupe"
         isLoading = false

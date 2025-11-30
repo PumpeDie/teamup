@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 
 
 /**
@@ -29,7 +29,7 @@ fun MainScreen(navController: NavController) {
     var teamName by remember { mutableStateOf("Chargement...") }
 
     LaunchedEffect(Unit) {
-        val team = ChatRepository.getUserTeam()
+        val team = TeamRepository.getUserTeam()
         teamName = if (team == null) {
             "Aucun groupe"
         } else {

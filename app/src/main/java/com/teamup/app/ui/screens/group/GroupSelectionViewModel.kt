@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 import kotlinx.coroutines.launch
 
 class GroupSelectionViewModel : ViewModel() {
@@ -32,7 +32,7 @@ class GroupSelectionViewModel : ViewModel() {
                     isLoading = false
                     return@launch
                 }
-                ChatRepository.createTeam(groupNameInput) // Crée un TeamGroup
+                TeamRepository.createTeam(groupNameInput) // Crée un TeamGroup
 
             } else {
                  if (groupCodeInput.isBlank()) {
@@ -40,7 +40,7 @@ class GroupSelectionViewModel : ViewModel() {
                     isLoading = false
                     return@launch
                 }
-                ChatRepository.joinTeam(groupCodeInput) // Rejoindre un TeamGroup
+                TeamRepository.joinTeam(groupCodeInput) // Rejoindre un TeamGroup
             }
 
              result.fold(

@@ -22,8 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.teamup.app.data.ChatRepository
 import com.teamup.app.data.TeamGroup
+import com.teamup.app.data.repository.TeamRepository
 import kotlinx.coroutines.launch
 
 // ============================================================================
@@ -49,13 +49,13 @@ fun GroupManagementScreen(navController: NavController) {
     var memberToRemove by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(Unit) {
-        team = ChatRepository.getUserTeam()
+        team = TeamRepository.getUserTeam()
         team?.let {
-            ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+            TeamRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
                 membersDetails = members
             }
-            isCreator = ChatRepository.isCreator(it.teamId)
-            isAdmin = ChatRepository.isAdmin(it.teamId)
+            isCreator = TeamRepository.isCreator(it.teamId)
+            isAdmin = TeamRepository.isAdmin(it.teamId)
         }
         isLoading = false
     }
@@ -116,12 +116,12 @@ fun GroupManagementScreen(navController: NavController) {
                 onRemoveMember = { member -> memberToRemove = member },
                 onPromoteToAdmin = { userId ->
                     scope.launch {
-                        ChatRepository.promoteToAdmin(team!!.teamId, userId).fold(
+                        TeamRepository.promoteToAdmin(team!!.teamId, userId).fold(
                             onSuccess = {
                                 Toast.makeText(context, "Membre promu admin !", Toast.LENGTH_SHORT).show()
-                                team = ChatRepository.getUserTeam()
+                                team = TeamRepository.getUserTeam()
                                 team?.let {
-                                    ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+                                    TeamRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
                                         membersDetails = members
                                     }
                                 }
@@ -134,12 +134,12 @@ fun GroupManagementScreen(navController: NavController) {
                 },
                 onDemoteFromAdmin = { userId ->
                     scope.launch {
-                        ChatRepository.demoteFromAdmin(team!!.teamId, userId).fold(
+                        TeamRepository.demoteFromAdmin(team!!.teamId, userId).fold(
                             onSuccess = {
                                 Toast.makeText(context, "Admin rétrogradé !", Toast.LENGTH_SHORT).show()
-                                team = ChatRepository.getUserTeam()
+                                team = TeamRepository.getUserTeam()
                                 team?.let {
-                                    ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+                                    TeamRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
                                         membersDetails = members
                                     }
                                 }
@@ -161,11 +161,11 @@ fun GroupManagementScreen(navController: NavController) {
                 onDismiss = { showRenameDialog = false },
                 onConfirm = { newName ->
                     scope.launch {
-                        ChatRepository.renameTeam(team!!.teamId, newName).fold(
+                        TeamRepository.renameTeam(team!!.teamId, newName).fold(
                             onSuccess = {
                                 Toast.makeText(context, "Groupe renommé !", Toast.LENGTH_SHORT).show()
                                 // Recharge les infos
-                                team = ChatRepository.getUserTeam()
+                                team = TeamRepository.getUserTeam()
                                 showRenameDialog = false
                             },
                             onFailure = { e ->
@@ -182,7 +182,7 @@ fun GroupManagementScreen(navController: NavController) {
                 onDismiss = { showLeaveDialog = false },
                 onConfirm = {
                     scope.launch {
-                        ChatRepository.leaveTeam(team!!.teamId).fold(
+                        TeamRepository.leaveTeam(team!!.teamId).fold(
                             onSuccess = {
                                 Toast.makeText(context, "Vous avez quitté le groupe", Toast.LENGTH_SHORT).show()
                                 navController.navigate("groupSelection") {
@@ -203,7 +203,7 @@ fun GroupManagementScreen(navController: NavController) {
                 onDismiss = { showDeleteDialog = false },
                 onConfirm = {
                     scope.launch {
-                        ChatRepository.deleteTeam(team!!.teamId).fold(
+                        TeamRepository.deleteTeam(team!!.teamId).fold(
                             onSuccess = {
                                 Toast.makeText(context, "Groupe supprimé", Toast.LENGTH_SHORT).show()
                                 navController.navigate("groupSelection") {
@@ -225,12 +225,12 @@ fun GroupManagementScreen(navController: NavController) {
                 onDismiss = { memberToRemove = null },
                 onConfirm = {
                     scope.launch {
-                        ChatRepository.removeMember(team!!.teamId, userId).fold(
+                        TeamRepository.removeMember(team!!.teamId, userId).fold(
                             onSuccess = {
                                 Toast.makeText(context, "$username a été exclu du groupe", Toast.LENGTH_SHORT).show()
-                                team = ChatRepository.getUserTeam()
+                                team = TeamRepository.getUserTeam()
                                 team?.let {
-                                    ChatRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
+                                    TeamRepository.getTeamMembersDetails(it.teamId).onSuccess { members ->
                                         membersDetails = members
                                     }
                                 }
