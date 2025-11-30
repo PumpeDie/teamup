@@ -21,7 +21,7 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 
 import com.teamup.app.data.ChatMessage
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.ChatRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*

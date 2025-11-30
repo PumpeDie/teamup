@@ -24,7 +24,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 
 
 data class Task(
@@ -52,7 +52,7 @@ fun TasksScreen(navController: NavController) {
 
     LaunchedEffect(userId) {
         if (userId != null) {
-            val team = ChatRepository.getUserTeam()
+            val team = TeamRepository.getUserTeam()
             teamId = team?.teamId
             teamName = team?.teamName ?: "Aucun groupe"
             

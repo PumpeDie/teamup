@@ -18,7 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 import com.teamup.app.ui.screens.home.MainScreen
 import com.teamup.app.ui.screens.login.LoginScreen
 import com.teamup.app.ui.screens.tasks.TasksScreen
@@ -109,7 +109,7 @@ fun LoadingGroupCheckScreen(navController: NavController) {
 
     LaunchedEffect(Unit) {
         try {
-            val teamId = ChatRepository.getUserTeamId() // Vérifie l'appartenance au TeamGroup
+            val teamId = TeamRepository.getUserTeamId() // Vérifie l'appartenance au TeamGroup
 
             if (!teamId.isNullOrBlank()) {
 

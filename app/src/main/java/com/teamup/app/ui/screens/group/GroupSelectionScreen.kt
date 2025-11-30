@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.teamup.app.data.ChatRepository
+import com.teamup.app.data.repository.TeamRepository
 
 @Composable
 fun GroupSelectionScreen(
@@ -19,7 +19,7 @@ fun GroupSelectionScreen(
     var isCheckingExistingTeam by remember { mutableStateOf(true) }
 
         LaunchedEffect(Unit) {
-        val existingTeamId = ChatRepository.getUserTeamId()
+        val existingTeamId = TeamRepository.getUserTeamId()
         if (!existingTeamId.isNullOrBlank()) {
             navController.navigate("home") {
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
