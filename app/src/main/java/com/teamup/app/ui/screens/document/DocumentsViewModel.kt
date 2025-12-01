@@ -7,26 +7,42 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.*
 import com.teamup.app.data.model.DocumentModel
+import com.teamup.app.data.repository.TeamRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.UUID
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 class DocumentsViewModel(
     private val supabase: SupabaseClient   // Injecté dans MainActivity ou via DI si tu veux
 ) : ViewModel() {
 
-    private val dbRef = FirebaseDatabase.getInstance().getReference("file-storage")
+    //private var dbRef = FirebaseDatabase.getInstance().getReference("file-storage")
+    private lateinit var dbRef: DatabaseReference
+    private var teamId: String? = null
 
     private val _documents = MutableStateFlow<List<DocumentModel>>(emptyList())
     val documents = _documents.asStateFlow()
 
     init {
-        loadDocuments()
+        viewModelScope.launch {
+            // Récupère le teamId pour l'utilisateur connecté
+            val currentTeamId = TeamRepository.getUserTeamId()
+            if (!currentTeamId.isNullOrBlank()) {
+                teamId = currentTeamId
+                // Référence Firebase sous teams/<teamId>/file-storage
+                dbRef = FirebaseDatabase.getInstance()
+                    .getReference("teams")
+                    .child(teamId!!)
+                    .child("file-storage")
+
+                loadDocuments()
+            }
+        }
     }
 
     fun getFileName(context: Context, uri: Uri): String {
@@ -63,6 +79,7 @@ class DocumentsViewModel(
         })
     }
 
+
     fun uploadFile(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
@@ -90,12 +107,12 @@ class DocumentsViewModel(
                     // 2. Opération Réseau (Upload Supabase)
                     supabase.storage
                         .from("file-storage")
-                        .upload(fileName, fileBytes)
+                        .upload("$teamId/$fileName", fileBytes)
 
                     // 3. Opération Réseau (Récupérer l'URL publique)
                     val publicUrl = supabase.storage
                         .from("file-storage")
-                        .publicUrl(fileName)
+                        .publicUrl("$teamId/$fileName")
 
                     // --- Retour sur le Main Thread implicite (pour les mises à jour Firebase/UI si besoin) ---
                     val key = dbRef.push().key ?: return@withContext
@@ -132,7 +149,7 @@ class DocumentsViewModel(
                     // 2) Supprimer dans Supabase
                     supabase.storage
                         .from("file-storage")
-                        .delete(storagePath)
+                        .delete("$teamId/$storagePath")
 
                     // 3) Supprimer dans Firebase
                     dbRef.child(doc.id).removeValue()
