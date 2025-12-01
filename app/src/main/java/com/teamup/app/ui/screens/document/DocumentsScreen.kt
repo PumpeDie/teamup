@@ -39,6 +39,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +49,10 @@ import androidx.core.net.toUri
 import androidx.navigation.NavController
 import com.teamup.app.R
 import coil.compose.AsyncImage
+import com.teamup.app.data.repository.TeamRepository
 import io.github.jan.supabase.SupabaseClient
+
+
 
 
 @Composable
