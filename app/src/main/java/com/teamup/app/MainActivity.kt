@@ -1,10 +1,17 @@
 package com.teamup.app
 
+
+import android.os.Build
+
 import com.teamup.app.ui.screens.group.GroupSelectionScreen
+
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+
+import androidx.annotation.RequiresApi
+import androidx.compose.runtime.Composable
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,22 +19,47 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+
+import com.teamup.app.ui.screens.agenda.AgendaScreen
+import com.teamup.app.ui.screens.chat.ChatListScreen
+import com.teamup.app.ui.screens.chat.ChatScreen
+import com.teamup.app.ui.screens.document.DocumentsScreen
 import com.teamup.app.data.repository.TeamRepository
 import com.teamup.app.ui.screens.home.MainScreen
 import com.teamup.app.ui.screens.login.LoginScreen
 import com.teamup.app.ui.screens.tasks.TasksScreen
-import com.teamup.app.ui.screens.chat.ChatListScreen
-import com.teamup.app.ui.screens.chat.ChatScreen
-import com.teamup.app.ui.screens.agenda.AgendaScreen
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.storage.Storage
+import android.util.Log
+
+/**
+ * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
+ */
+
+
+
+    private val supabaseClient by lazy {
+        createSupabaseClient(
+            supabaseUrl = "https://psqwhvxxrlmhcummvlht.supabase.co",
+            supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzcXdodnh4cmxtaGN1bW12bGh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MzIyNjgsImV4cCI6MjA4MDEwODI2OH0.UsVbStaHz4xCQ-dylZou4dXPZBhAIo_y1QMW97gOGr4"
+        ) {
+            //httpEngine = Android.create()
+            install(Storage)
+            install(Auth)
+        }
+    }
 
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
@@ -40,6 +72,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+
+
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -57,7 +93,8 @@ fun AppNavigation() {
         composable("login") {
             LoginScreen(navController)
         }
-  composable("loadingTeamCheck") {
+
+        composable("loadingTeamCheck") {
             LoadingGroupCheckScreen(navController)
         }
 
@@ -76,6 +113,7 @@ fun AppNavigation() {
         composable("tasks") {
             TasksScreen(navController)
         }
+
         composable("chatList") {
             ChatListScreen(navController)
         }
@@ -99,6 +137,11 @@ fun AppNavigation() {
                 }
             }
         }
+
+        composable("documents") {
+            DocumentsScreen(navController,supabaseClient)
+        }
+
     }
 }
 

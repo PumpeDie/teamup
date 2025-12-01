@@ -58,14 +58,33 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended-android:1.7.8")
     implementation(libs.firebase.database)
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-database-ktx")
+    implementation("io.coil-kt:coil-compose:2.6.0")
     implementation(libs.androidx.navigation.compose)
     implementation(libs.firebase.auth)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
+    //file storage
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.2.6"))
+    implementation("io.github.jan-tennert.supabase:supabase-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
+    //implementation("io.ktor:ktor-client-android:2.3.12")
+    implementation("io.github.jan-tennert.supabase:auth-kt")
+    implementation("io.ktor:ktor-client-okhttp:3.0.0")
+    implementation(libs.androidx.compose.foundation)
+
+
+    /*implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
+    implementation("io.ktor:ktor-client-core:2.3.12")
+    implementation("io.ktor:ktor-client-auth:2.3.12")
+    implementation("io.ktor:ktor-client-logging:2.3.12")
+    implementation("io.ktor:ktor-client-websockets:2.3.12")
+    implementation("io.ktor:ktor-client-core-jvm")
+    implementation("io.ktor:ktor-client-plugins:2.3.12")*/
 
     // Tests
     testImplementation(libs.junit)

@@ -4,4 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply true
     alias(libs.plugins.google.gms.google.services) apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
+    //id("io.ktor.plugin") version "2.3.12"
 }
