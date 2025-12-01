@@ -1,252 +1,45 @@
 package com.teamup.app.data
 
-import android.util.Log
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
-
 // ============================================================================
-// MODÈLES DE DONNÉES
+// DATA CLASSES - Modèles de données pour l'application TeamUp
 // ============================================================================
 
 /**
- * Représente un message dans un chat de groupe
+ * Représente un groupe d'équipe (TeamGroup)
+ */
+data class TeamGroup(
+    val teamId: String = "",
+    val teamName: String = "",
+    val creatorId: String = "",
+    val adminIds: List<String> = emptyList(),
+    val memberIds: List<String> = emptyList()
+) {
+    constructor() : this("", "", "", emptyList(), emptyList())
+}
+
+/**
+ * Représente un salon de chat dans une équipe
+ */
+data class ChatRoom(
+    val chatRoomId: String = "",
+    val teamId: String = "",
+    val chatName: String = "",
+    val lastMessage: String = "",
+    val lastMessageTime: Long = 0L
+) {
+    constructor() : this("", "", "", "", 0L)
+}
+
+/**
+ * Représente un message dans un salon de chat
  */
 data class ChatMessage(
     val messageId: String = "",
-    val groupId: String = "",
+    val chatRoomId: String = "",
     val userId: String = "",
     val userName: String = "",
     val content: String = "",
     val timestamp: Long = System.currentTimeMillis()
 ) {
     constructor() : this("", "", "", "", "", 0L)
-}
-
-/**
- * Représente un groupe de chat
- */
-data class ChatGroup(
-    val groupId: String = "",
-    val groupName: String = "",
-    val lastMessage: String = "",
-    val lastMessageTime: Long = 0L,
-    val memberIds: List<String> = emptyList()
-) {
-    constructor() : this("", "", "", 0L, emptyList())
-}
-
-// ============================================================================
-// REPOSITORY FIREBASE
-// ============================================================================
-
-/**
- * Repository pour gérer les chats Firebase
- */
-object ChatRepository {
-    
-    private val database = FirebaseDatabase.getInstance()
-    private val auth = FirebaseAuth.getInstance()
-    private val messagesRef = database.getReference("messages")
-    private val groupsRef = database.getReference("groups")
-    
-    /**
-     * Récupère les groupes de l'utilisateur en temps réel
-     */
-    fun getUserGroups(): Flow<List<ChatGroup>> = callbackFlow {
-        val userId = auth.currentUser?.uid ?: ""
-        
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val groups = mutableListOf<ChatGroup>()
-                
-                snapshot.children.forEach { groupSnapshot ->
-                    val group = groupSnapshot.getValue(ChatGroup::class.java)
-                    if (group != null && group.memberIds.contains(userId)) {
-                        groups.add(group)
-                    }
-                }
-                
-                groups.sortByDescending { it.lastMessageTime }
-                trySend(groups)
-            }
-            
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("ChatRepository", "Error: ${error.message}")
-            }
-        }
-        
-        groupsRef.addValueEventListener(listener)
-        awaitClose { groupsRef.removeEventListener(listener) }
-    }
-    
-    /**
-     * Récupère les messages d'un groupe en temps réel
-     */
-    fun getGroupMessages(groupId: String): Flow<List<ChatMessage>> = callbackFlow {
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val messages = mutableListOf<ChatMessage>()
-                
-                snapshot.children.forEach { messageSnapshot ->
-                    val message = messageSnapshot.getValue(ChatMessage::class.java)
-                    if (message != null) {
-                        messages.add(message)
-                    }
-                }
-                
-                messages.sortBy { it.timestamp }
-                trySend(messages)
-            }
-            
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("ChatRepository", "Error: ${error.message}")
-            }
-        }
-        
-        messagesRef.child(groupId).addValueEventListener(listener)
-        awaitClose { messagesRef.child(groupId).removeEventListener(listener) }
-    }
-
-    /**
-    * Crée un nouveau groupe
-    */
-    suspend fun createGroup(groupName: String): Result<String> {
-        return try {
-            val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
-            
-            val groupId = groupsRef.push().key
-                ?: return Result.failure(Exception("Failed to generate ID"))
-            
-            val group = ChatGroup(
-                groupId = groupId,
-                groupName = groupName,
-                lastMessage = "",
-                lastMessageTime = System.currentTimeMillis(),
-                memberIds = listOf(user.uid)
-            )
-            
-            groupsRef.child(groupId).setValue(group).await()
-            
-            Result.success(groupId)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Envoie un message
-     */
-    suspend fun sendMessage(groupId: String, content: String): Result<Unit> {
-        return try {
-            val user = auth.currentUser ?: return Result.failure(Exception("Not logged in"))
-            
-            val messageId = messagesRef.child(groupId).push().key
-                ?: return Result.failure(Exception("Failed to generate ID"))
-            
-            val message = ChatMessage(
-                messageId = messageId,
-                groupId = groupId,
-                userId = user.uid,
-                userName = user.email?.substringBefore("@") ?: "Utilisateur",
-                content = content,
-                timestamp = System.currentTimeMillis()
-            )
-            
-            messagesRef.child(groupId).child(messageId).setValue(message).await()
-            
-            // Mettre à jour le dernier message
-            val updates = mapOf(
-                "lastMessage" to content,
-                "lastMessageTime" to message.timestamp
-            )
-            groupsRef.child(groupId).updateChildren(updates).await()
-            
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Récupère un groupe
-     */
-    suspend fun getGroup(groupId: String): Result<ChatGroup> {
-        return try {
-            val snapshot = groupsRef.child(groupId).get().await()
-            val group = snapshot.getValue(ChatGroup::class.java)
-            
-            if (group != null) {
-                Result.success(group)
-            } else {
-                Result.failure(Exception("Group not found"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Renomme un groupe
-     */
-    suspend fun renameGroup(groupId: String, newName: String): Result<Unit> {
-        return try {
-            groupsRef.child(groupId).child("groupName").setValue(newName).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Supprime un groupe et ses messages
-     */
-    suspend fun deleteGroup(groupId: String): Result<Unit> {
-        return try {
-            groupsRef.child(groupId).removeValue().await()
-            messagesRef.child(groupId).removeValue().await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Ajoute un membre à un groupe par email
-     * Note: Version simplifiée - recherche parmi tous les membres existants des groupes
-     */
-    suspend fun addMemberToGroup(groupId: String, memberEmail: String): Result<Unit> {
-        return try {
-            // Récupérer tous les groupes pour trouver l'utilisateur
-            val allGroupsSnapshot = groupsRef.get().await()
-            var foundUserId: String? = null
-            
-            // Chercher l'utilisateur dans tous les groupes existants
-            allGroupsSnapshot.children.forEach { groupSnapshot ->
-                val group = groupSnapshot.getValue(ChatGroup::class.java)
-                // Note: Pour l'instant on ne peut pas vraiment chercher par email
-                // car on n'a pas de collection users
-            }
-            
-            // Alternative simple: permettre l'ajout par UID
-            if (memberEmail.isBlank()) {
-                return Result.failure(Exception("Veuillez entrer un email"))
-            }
-            
-            // Pour le MVP, on demande à l'utilisateur de partager le code du groupe
-            // et on permet d'entrer l'UID directement
-            Result.failure(Exception("Fonctionnalité en cours de développement. Partagez le lien du groupe avec vos amis !"))
-            
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error: ${e.message}")
-            Result.failure(e)
-        }
-    }
 }
