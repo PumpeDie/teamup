@@ -100,6 +100,16 @@ fun MainScreen(navController: NavController) {
             ) {
                 Text("Se déconnecter")
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { navController.navigate("documents") },
+                modifier = Modifier.fillMaxWidth(0.7f)
+            ) {
+                Text("Documents")
+            }
+
         }
     }
 }
