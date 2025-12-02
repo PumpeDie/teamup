@@ -1,6 +1,7 @@
 package com.teamup.app.ui.screens.agenda
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -9,7 +10,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -20,7 +23,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,14 +41,12 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.teamup.app.data.repository.TeamRepository
-import android.util.Log
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.util.Locale
-import kotlin.Exception
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Keep
@@ -118,6 +118,7 @@ fun AgendaScreen(navController: NavController) {
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
     var eventToEdit by remember { mutableStateOf<Event?>(null) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     // Gestion de la semaine courante
     var currentWeekStart by remember { mutableStateOf(LocalDate.now().with(DayOfWeek.MONDAY)) }
@@ -196,7 +197,12 @@ fun AgendaScreen(navController: NavController) {
                     currentDayOffset = newOffset
                 },
                 onEventClick = { event ->
-                    selectedEvent = event
+                    if (event.isMeeting) {
+                        eventToEdit = event
+                        showEditDialog = true
+                    } else {
+                        selectedEvent = event
+                    }
                 }
             )
         }
@@ -234,7 +240,7 @@ fun AgendaScreen(navController: NavController) {
             )
         }
 
-        if (eventToEdit != null) {
+        if (eventToEdit != null && !showEditDialog) {
             EditEventDialog(
                 event = eventToEdit!!,
                 onDismiss = { eventToEdit = null },
@@ -251,6 +257,26 @@ fun AgendaScreen(navController: NavController) {
                     }
 
                     agendaRef.child(updatedEvent.id).setValue(updatedEvent)
+                    eventToEdit = null
+                }
+            )
+        }
+
+        if (showEditDialog && eventToEdit != null) {
+            EditMeetingDialog(
+                event = eventToEdit!!,
+                onDismiss = {
+                    showEditDialog = false
+                    eventToEdit = null
+                },
+                onConfirm = { updatedMeeting ->
+                    updatedMeeting.id = eventToEdit!!.id
+                    updatedMeeting.createdBy = eventToEdit!!.createdBy
+                    updatedMeeting.createdByName = eventToEdit!!.createdByName
+                    updatedMeeting.createdAt = eventToEdit!!.createdAt
+
+                    agendaRef.child(updatedMeeting.id).setValue(updatedMeeting)
+                    showEditDialog = false
                     eventToEdit = null
                 }
             )
@@ -585,16 +611,16 @@ fun WeeklyAgendaView(
                         } else 0
                     } ?: 0
 
-                val baseHeight = 120.dp // Augmenté de 85dp à 120dp
+                val baseHeight = 80.dp // Réduit de 120dp à 80dp pour voir plus d'heures
                 val descriptionHeight = if (maxDescriptionLines > 0) {
-                    (maxDescriptionLines * 18).dp + 12.dp // Augmenté l'espacement
+                    (maxDescriptionLines * 14).dp + 8.dp // Réduit l'espacement et la taille
                 } else {
                     0.dp
                 }
                 val minHeight = if (hasEvents) {
-                    (baseHeight + descriptionHeight).coerceAtLeast(120.dp).coerceAtMost(300.dp) // Augmenté les limites
+                    (baseHeight + descriptionHeight).coerceAtLeast(70.dp).coerceAtMost(200.dp) // Réduit les limites
                 } else {
-                    90.dp // Augmenté de 70dp à 90dp
+                    60.dp // Réduit de 90dp à 60dp pour les cellules vides
                 }
 
                 Row(
@@ -705,9 +731,9 @@ private fun RowScope.DayCell(
                             )
                         )
                     )
-                    .padding(horizontal = 12.dp, vertical = 14.dp), // Augmenté le padding
+                    .padding(horizontal = 10.dp, vertical = 10.dp), // Réduit de 12dp/14dp à 10dp
                 horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(8.dp) // Augmenté l'espacement
+                verticalArrangement = Arrangement.spacedBy(6.dp) // Réduit de 8dp à 6dp
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -726,7 +752,7 @@ private fun RowScope.DayCell(
                         lineHeight = 18.sp, // Augmenté le line height
                         modifier = Modifier.weight(1f)
                     )
-                    
+
                     if (event.isMeeting) {
                         Icon(
                             Icons.Default.Group,
@@ -755,7 +781,7 @@ private fun RowScope.DayCell(
                     } else {
                         "${event.hour}:00"
                     }
-                    
+
                     Text(
                         text = timeRange,
                         style = MaterialTheme.typography.bodySmall.copy(
@@ -923,7 +949,7 @@ private fun Header(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // ESPACE POUR L'HEURE AJUSTÉ
-            Spacer(modifier = Modifier.width(80.dp)) // Réduit de 90dp à 80dp pour plus d'espace pour les jours
+            Spacer(modifier = Modifier.width(70.dp)) // Réduit de 80dp à 70dp pour plus d'espace pour les jours
 
             weekDates.forEach { date ->
                 val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
@@ -987,7 +1013,7 @@ private fun Header(
 private fun RowScope.HourCell(hour: String) {
     Box(
         modifier = Modifier
-            .width(80.dp) // Ajusté de 90dp à 80dp pour correspondre
+            .width(70.dp) // Ajusté de 80dp à 70dp pour correspondre
             .padding(horizontal = 6.dp, vertical = 6.dp), // Augmenté le padding
         contentAlignment = Alignment.Center
     ) {
@@ -1138,6 +1164,322 @@ fun EventDetailsDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Fermer")
+            }
+        }
+    )
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditMeetingDialog(
+    event: Event,
+    onDismiss: () -> Unit,
+    onConfirm: (Event) -> Unit
+) {
+    var subject by remember { mutableStateOf(event.title) }
+    var description by remember { mutableStateOf(event.description) }
+    var selectedHour by remember { mutableStateOf(event.hour) }
+    var selectedEndHour by remember { mutableStateOf(event.endHour) }
+    var room by remember { mutableStateOf(event.room) }
+    var isVisio by remember { mutableStateOf(event.isVisio) }
+    var selectedParticipants by remember { mutableStateOf(event.participants.toSet()) }
+    var expandedHour by remember { mutableStateOf(false) }
+    var expandedEndHour by remember { mutableStateOf(false) }
+    var teamMembers by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var isLoadingMembers by remember { mutableStateOf(true) }
+
+    // Charger les membres du groupe
+    LaunchedEffect(Unit) {
+        val auth = FirebaseAuth.getInstance()
+        val currentUser = auth.currentUser
+        val team = TeamRepository.getUserTeam()
+
+        team?.teamId?.let { teamId ->
+            isLoadingMembers = true
+            TeamRepository.getTeamMembersDetails(teamId)
+                .onSuccess { members ->
+                    // Ajouter l'utilisateur courant s'il n'est pas dans la liste
+                    val allMembers = if (currentUser != null && members.none { it.first == currentUser.uid }) {
+                        members + Pair(currentUser.uid, currentUser.displayName ?: currentUser.email ?: "Utilisateur")
+                    } else {
+                        members
+                    }
+                    teamMembers = allMembers
+                    isLoadingMembers = false
+                }
+                .onFailure { error ->
+                    Log.e("EditMeeting", "Erreur chargement membres: ${error.message}")
+                    isLoadingMembers = false
+                }
+        } ?: run {
+            isLoadingMembers = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Modifier la réunion",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Section Informations de base
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Informations de la réunion",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        OutlinedTextField(
+                            value = subject,
+                            onValueChange = { subject = it },
+                            label = { Text("Sujet de la réunion") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = description,
+                            onValueChange = { description = it },
+                            label = { Text("Description (optionnel)") },
+                            minLines = 2,
+                            maxLines = 4,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Section Horaires
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Horaires",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            ExposedDropdownMenuBox(
+                                expanded = expandedHour,
+                                onExpandedChange = { expandedHour = !expandedHour },
+                                modifier = Modifier.weight(1f) // Ajouté weight ici
+                            ) {
+                                OutlinedTextField(
+                                    value = "$selectedHour:00",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Début") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedHour) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth() // Enlevé weight ici, mis fillMaxWidth
+                                )
+                                ExposedDropdownMenu(expanded = expandedHour, onDismissRequest = { expandedHour = false }) {
+                                    (8..20).toList().forEach { hour ->
+                                        DropdownMenuItem(
+                                            text = { Text("$hour:00") },
+                                            onClick = {
+                                                selectedHour = hour
+                                                if (selectedEndHour <= selectedHour) {
+                                                    selectedEndHour = selectedHour + 1
+                                                }
+                                                expandedHour = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            ExposedDropdownMenuBox(
+                                expanded = expandedEndHour,
+                                onExpandedChange = { expandedEndHour = !expandedEndHour },
+                                modifier = Modifier.weight(1f) // Ajouté weight ici
+                            ) {
+                                OutlinedTextField(
+                                    value = "$selectedEndHour:00",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Fin") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEndHour) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth() // Enlevé weight ici, mis fillMaxWidth
+                                )
+                                ExposedDropdownMenu(expanded = expandedEndHour, onDismissRequest = { expandedEndHour = false }) {
+                                    ((selectedHour + 1)..21).toList().forEach { hour ->
+                                        DropdownMenuItem(
+                                            text = { Text("$hour:00") },
+                                            onClick = {
+                                                selectedEndHour = hour
+                                                expandedEndHour = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section Lieu/Visio
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Lieu",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isVisio,
+                                onCheckedChange = { isVisio = it }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Réunion par visioconférence")
+                        }
+
+                        OutlinedTextField(
+                            value = room,
+                            onValueChange = { room = it },
+                            label = { Text(if (isVisio) "Lien de visioconférence" else "Salle de réunion") },
+                            placeholder = { Text(if (isVisio) "https://..." else "Ex: Salle A101") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Section Participants
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Participants (${selectedParticipants.size})",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        if (isLoadingMembers) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(100.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.height(200.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(teamMembers) { (memberId, memberName) ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                if (memberId in selectedParticipants) {
+                                                    selectedParticipants -= memberId
+                                                } else {
+                                                    selectedParticipants += memberId
+                                                }
+                                            }
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = memberId in selectedParticipants,
+                                            onCheckedChange = {
+                                                if (memberId in selectedParticipants) {
+                                                    selectedParticipants -= memberId
+                                                } else {
+                                                    selectedParticipants += memberId
+                                                }
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = memberName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val updatedEvent = event.copy(
+                        title = subject,
+                        description = description,
+                        hour = selectedHour,
+                        endHour = selectedEndHour,
+                        room = room,
+                        isVisio = isVisio,
+                        participants = selectedParticipants.toList()
+                    )
+                    onConfirm(updatedEvent)
+                },
+                enabled = subject.isNotBlank() && room.isNotBlank() && selectedParticipants.isNotEmpty()
+            ) {
+                Text("Enregistrer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
             }
         }
     )

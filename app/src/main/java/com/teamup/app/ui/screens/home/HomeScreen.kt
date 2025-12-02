@@ -1,5 +1,6 @@
 package com.teamup.app.ui.screens.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,8 +41,14 @@ fun MainScreen(navController: NavController) {
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         currentUser?.let { user ->
-            val rawName = user.displayName ?: user.email?.split("@")?.firstOrNull() ?: "Utilisateur"
-            userName = rawName.replaceFirstChar { it.uppercase() }
+            val rawName = when {
+                !user.displayName.isNullOrEmpty() -> user.displayName!!
+                !user.email.isNullOrEmpty() -> user.email!!.split("@").firstOrNull() ?: "Utilisateur"
+                else -> "Utilisateur"
+            }
+            userName = rawName.replaceFirstChar { if (it.isLowerCase()) it.uppercase() else it.toString() }
+        } ?: run {
+            userName = "Utilisateur"
         }
     }
 
@@ -70,9 +78,9 @@ fun MainScreen(navController: NavController) {
                 modifier = Modifier.fillMaxSize()
             ) {
 
-                // SECTION 1 : Header
+                // SECTION 1 : Header avec Nom du groupe centré (AGRANDI)
                 item {
-                    HomeHeaderModern(userName = userName)
+                    HomeHeaderModern(userName = userName, teamName = teamName)
                 }
 
                 // SECTION 2 : Actions "À la une"
@@ -93,7 +101,7 @@ fun MainScreen(navController: NavController) {
                     )
                 }
 
-                // SECTION 4 : Liste verticale des fonctionnalités (SANS Paramètres)
+                // SECTION 4 : Liste verticale des fonctionnalités
                 items(features) { feature ->
                     FeatureListItem(
                         feature = feature,
@@ -101,7 +109,7 @@ fun MainScreen(navController: NavController) {
                     )
                 }
 
-                // SECTION 5 : Bouton Déconnexion (Géré séparément pour la logique de signOut)
+                // SECTION 5 : Bouton Déconnexion
                 item {
                     LogoutListItem(navController = navController)
                 }
@@ -115,28 +123,55 @@ fun MainScreen(navController: NavController) {
 // --- COMPOSANTS UI ---
 
 @Composable
-fun HomeHeaderModern(userName: String) {
-    Row(
+fun HomeHeaderModern(userName: String, teamName: String) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = 16.dp, bottom = 12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // --- 1. NOM DU GROUPE CENTRÉ ET AGRANDI ---
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
             Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Un peu plus opaque pour la lisibilité
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                // MODIF: Hauteur augmentée à 48dp pour loger le texte plus grand
+                modifier = Modifier.height(48.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Groups,
-                    contentDescription = "Logo",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(6.dp)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // MODIF: Padding horizontal augmenté à 24dp
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Groups,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        // MODIF: Taille icône augmentée à 24dp
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = teamName,
+                        // MODIF: Style passé à titleMedium (plus grand) et Bold
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- 2. SALUTATIONS ET AVATAR ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
                 val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
                 val greeting = if (hour < 18) "Bonjour" else "Bonsoir"
@@ -153,20 +188,20 @@ fun HomeHeaderModern(userName: String) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
 
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = userName.take(1).uppercase(),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = userName.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
@@ -418,7 +453,6 @@ private fun getFeatures(): List<FeatureItem> {
     val tertiary = MaterialTheme.colorScheme.tertiary
 
     return remember {
-        // "Paramètres" et "Déconnexion" ont été retirés de cette liste
         listOf(
             FeatureItem(Icons.Default.Groups, "Mon Groupe", "Gérer les membres et infos", primary, "groupInfo"),
             FeatureItem(Icons.Default.ChatBubbleOutline, "Discussions", "Chats d'équipe et privés", secondary, "chatList"),
