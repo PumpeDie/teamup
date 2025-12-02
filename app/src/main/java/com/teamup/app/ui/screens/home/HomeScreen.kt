@@ -78,7 +78,7 @@ fun MainScreen(navController: NavController) {
                 modifier = Modifier.fillMaxSize()
             ) {
 
-                // SECTION 1 : Header avec Nom du groupe centré (AGRANDI)
+                // SECTION 1 : Header avec Nom du groupe centré
                 item {
                     HomeHeaderModern(userName = userName, teamName = teamName)
                 }
@@ -129,7 +129,7 @@ fun HomeHeaderModern(userName: String, teamName: String) {
             .fillMaxWidth()
             .padding(top = 16.dp, bottom = 12.dp)
     ) {
-        // --- 1. NOM DU GROUPE CENTRÉ ET AGRANDI ---
+        // --- 1. NOM DU GROUPE CENTRÉ ---
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
@@ -138,25 +138,21 @@ fun HomeHeaderModern(userName: String, teamName: String) {
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), // Un peu plus opaque pour la lisibilité
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                // MODIF: Hauteur augmentée à 48dp pour loger le texte plus grand
                 modifier = Modifier.height(48.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    // MODIF: Padding horizontal augmenté à 24dp
                     modifier = Modifier.padding(horizontal = 24.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Groups,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        // MODIF: Taille icône augmentée à 24dp
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = teamName,
-                        // MODIF: Style passé à titleMedium (plus grand) et Bold
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )

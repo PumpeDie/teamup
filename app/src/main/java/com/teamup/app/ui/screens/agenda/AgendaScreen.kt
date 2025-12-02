@@ -54,7 +54,7 @@ data class Event constructor(
     var id: String = "",
     var title: String = "",
     var description: String = "",
-    var date: String = "", // Format important: yyyy-MM-dd
+    var date: String = "", // Format: yyyy-MM-dd
     var day: String = DayOfWeek.MONDAY.name,
     var hour: Int = 8,
     var endHour: Int = 9, // Heure de fin
@@ -120,17 +120,17 @@ fun AgendaScreen(navController: NavController) {
     var eventToEdit by remember { mutableStateOf<Event?>(null) }
     var showEditDialog by remember { mutableStateOf(false) }
 
-    // Gestion de la semaine courante
+    // Gestion de la semaine actuelle
     var currentWeekStart by remember { mutableStateOf(LocalDate.now().with(DayOfWeek.MONDAY)) }
     var currentDayOffset by remember { mutableStateOf(0) } // Pour naviguer par tranches de 3 jours
 
-    // Calculer les dates de la tranche de 3 jours
+    // Calculer les dates de des 3 jours
     val visibleDates = remember(currentWeekStart, currentDayOffset) {
         val startDate = currentWeekStart.plusDays(currentDayOffset.toLong())
         (0..2).map { startDate.plusDays(it.toLong()) } // 3 jours seulement
     }
 
-    // Filtrer les événements de la tranche de jours visible
+    // Filtrer les événements visibles pendant les 3 jours
     val visibleEvents = remember(events, visibleDates) {
         val dateStrings = visibleDates.map { it.toString() }
         events.filter { event ->
@@ -294,7 +294,7 @@ fun AddEventDialog(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
-    // Par défaut : Date du jour
+    // Par défaut c'est la date du jour
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var selectedHour by remember { mutableStateOf(8) }
 
@@ -611,16 +611,16 @@ fun WeeklyAgendaView(
                         } else 0
                     } ?: 0
 
-                val baseHeight = 80.dp // Réduit de 120dp à 80dp pour voir plus d'heures
+                val baseHeight = 80.dp
                 val descriptionHeight = if (maxDescriptionLines > 0) {
-                    (maxDescriptionLines * 14).dp + 8.dp // Réduit l'espacement et la taille
+                    (maxDescriptionLines * 14).dp + 8.dp
                 } else {
                     0.dp
                 }
                 val minHeight = if (hasEvents) {
                     (baseHeight + descriptionHeight).coerceAtLeast(70.dp).coerceAtMost(200.dp) // Réduit les limites
                 } else {
-                    60.dp // Réduit de 90dp à 60dp pour les cellules vides
+                    60.dp
                 }
 
                 Row(
@@ -645,7 +645,7 @@ fun WeeklyAgendaView(
                         DayCell(
                             modifier = Modifier.weight(1f),
                             event = event,
-                            isWeekend = isWeekend, // Nouveau paramètre passé
+                            isWeekend = isWeekend,
                             onEventClick = onEventClick
                         )
                     }
@@ -668,7 +668,7 @@ private fun RowScope.DayCell(
     isWeekend: Boolean, // Paramètre pour colorer le week-end
     onEventClick: (Event) -> Unit
 ) {
-    // Couleur violette pour le week-end (Material Purple 100/200 approx)
+    // Couleur violette pour le week-end
     val weekendColor = Color(0xFFE1BEE7).copy(alpha = 0.4f)
 
     Box(
@@ -686,7 +686,7 @@ private fun RowScope.DayCell(
                     Color.Transparent
                 }
             )
-            .padding(horizontal = 5.dp, vertical = 3.dp) // Augmenté le padding horizontal de 3dp à 5dp
+            .padding(horizontal = 5.dp, vertical = 3.dp)
             .clickable(enabled = event != null) {
                 if (event != null) {
                     onEventClick(event)
@@ -719,8 +719,8 @@ private fun RowScope.DayCell(
                     .fillMaxWidth()
                     .wrapContentHeight()
                     .shadow(
-                        elevation = 6.dp, // Augmenté l'élévation
-                        shape = RoundedCornerShape(10.dp) // Augmenté le radius
+                        elevation = 6.dp,
+                        shape = RoundedCornerShape(10.dp)
                     )
                     .clip(RoundedCornerShape(10.dp))
                     .background(
@@ -731,9 +731,9 @@ private fun RowScope.DayCell(
                             )
                         )
                     )
-                    .padding(horizontal = 10.dp, vertical = 10.dp), // Réduit de 12dp/14dp à 10dp
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(6.dp) // Réduit de 8dp à 6dp
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -742,14 +742,14 @@ private fun RowScope.DayCell(
                 ) {
                     Text(
                         text = event.title,
-                        style = MaterialTheme.typography.bodyMedium.copy( // Changé de bodySmall à bodyMedium
+                        style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.3.sp
                         ),
                         color = textColor,
                         textAlign = TextAlign.Start,
-                        fontSize = 14.sp, // Augmenté de 12sp à 14sp
-                        lineHeight = 18.sp, // Augmenté le line height
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
                         modifier = Modifier.weight(1f)
                     )
 
@@ -758,7 +758,7 @@ private fun RowScope.DayCell(
                             Icons.Default.Group,
                             contentDescription = "Réunion",
                             tint = textColor,
-                            modifier = Modifier.size(16.dp) // Augmenté de 14dp à 16dp
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -948,8 +948,8 @@ private fun Header(
                 .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ESPACE POUR L'HEURE AJUSTÉ
-            Spacer(modifier = Modifier.width(70.dp)) // Réduit de 80dp à 70dp pour plus d'espace pour les jours
+
+            Spacer(modifier = Modifier.width(70.dp))
 
             weekDates.forEach { date ->
                 val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
@@ -966,7 +966,7 @@ private fun Header(
                                 else -> Color.Transparent
                             }
                         )
-                        .padding(vertical = 8.dp, horizontal = 8.dp), // Augmenté le padding horizontal de 4dp à 8dp
+                        .padding(vertical = 8.dp, horizontal = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1013,8 +1013,8 @@ private fun Header(
 private fun RowScope.HourCell(hour: String) {
     Box(
         modifier = Modifier
-            .width(70.dp) // Ajusté de 80dp à 70dp pour correspondre
-            .padding(horizontal = 6.dp, vertical = 6.dp), // Augmenté le padding
+            .width(70.dp)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -1024,15 +1024,15 @@ private fun RowScope.HourCell(hour: String) {
             softWrap = false,
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
-                fontSize = 13.sp // Augmenté légèrement la taille
+                fontSize = 13.sp
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp)) // Augmenté le radius
+                .clip(RoundedCornerShape(8.dp))
                 .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) // Augmenté la visibilité
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 )
-                .padding(horizontal = 6.dp, vertical = 6.dp) // Augmenté le padding interne
+                .padding(horizontal = 6.dp, vertical = 6.dp)
         )
     }
 }
@@ -1294,7 +1294,7 @@ fun EditMeetingDialog(
                             ExposedDropdownMenuBox(
                                 expanded = expandedHour,
                                 onExpandedChange = { expandedHour = !expandedHour },
-                                modifier = Modifier.weight(1f) // Ajouté weight ici
+                                modifier = Modifier.weight(1f)
                             ) {
                                 OutlinedTextField(
                                     value = "$selectedHour:00",
@@ -1302,7 +1302,7 @@ fun EditMeetingDialog(
                                     readOnly = true,
                                     label = { Text("Début") },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedHour) },
-                                    modifier = Modifier.menuAnchor().fillMaxWidth() // Enlevé weight ici, mis fillMaxWidth
+                                    modifier = Modifier.menuAnchor().fillMaxWidth()
                                 )
                                 ExposedDropdownMenu(expanded = expandedHour, onDismissRequest = { expandedHour = false }) {
                                     (8..20).toList().forEach { hour ->
@@ -1323,7 +1323,7 @@ fun EditMeetingDialog(
                             ExposedDropdownMenuBox(
                                 expanded = expandedEndHour,
                                 onExpandedChange = { expandedEndHour = !expandedEndHour },
-                                modifier = Modifier.weight(1f) // Ajouté weight ici
+                                modifier = Modifier.weight(1f)
                             ) {
                                 OutlinedTextField(
                                     value = "$selectedEndHour:00",
@@ -1331,7 +1331,7 @@ fun EditMeetingDialog(
                                     readOnly = true,
                                     label = { Text("Fin") },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEndHour) },
-                                    modifier = Modifier.menuAnchor().fillMaxWidth() // Enlevé weight ici, mis fillMaxWidth
+                                    modifier = Modifier.menuAnchor().fillMaxWidth()
                                 )
                                 ExposedDropdownMenu(expanded = expandedEndHour, onDismissRequest = { expandedEndHour = false }) {
                                     ((selectedHour + 1)..21).toList().forEach { hour ->
