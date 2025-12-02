@@ -92,6 +92,15 @@ fun MainScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(12.dp))
 
             Button(
+                onClick = { navController.navigate("meetingPlanning") },
+                modifier = Modifier.fillMaxWidth(0.7f)
+            ) {
+                Text("Planifier une réunion")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
                 onClick = { navController.navigate("agenda") },
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {

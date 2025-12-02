@@ -34,6 +34,7 @@ import com.teamup.app.ui.screens.document.DocumentsScreen
 import com.teamup.app.data.repository.TeamRepository
 import com.teamup.app.ui.screens.home.MainScreen
 import com.teamup.app.ui.screens.login.LoginScreen
+import com.teamup.app.ui.screens.meeting.MeetingPlanningScreen
 import com.teamup.app.ui.screens.tasks.TasksScreen
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
@@ -134,6 +135,16 @@ fun AppNavigation() {
 
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("L'agenda nécessite Android 8.0+")
+                }
+            }
+        }
+
+        composable("meetingPlanning") {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                MeetingPlanningScreen(navController)
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("La planification de réunion nécessite Android 8.0+")
                 }
             }
         }
