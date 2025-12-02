@@ -17,7 +17,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +39,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.teamup.app.data.repository.TeamRepository
+import android.util.Log
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -53,9 +57,14 @@ data class Event constructor(
     var date: String = "", // Format important: yyyy-MM-dd
     var day: String = DayOfWeek.MONDAY.name,
     var hour: Int = 8,
+    var endHour: Int = 9, // Heure de fin
     var createdBy: String = "",
     var createdByName: String = "",
-    var createdAt: Long = System.currentTimeMillis()
+    var createdAt: Long = System.currentTimeMillis(),
+    var participants: List<String> = emptyList(), // Liste des IDs des participants pour les réunions
+    var isMeeting: Boolean = false, // true si c'est une réunion planifiée
+    var room: String = "", // Salle de réunion ou lien visio
+    var isVisio: Boolean = false // true si c'est une réunion visio
 )
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -112,17 +121,19 @@ fun AgendaScreen(navController: NavController) {
 
     // Gestion de la semaine courante
     var currentWeekStart by remember { mutableStateOf(LocalDate.now().with(DayOfWeek.MONDAY)) }
+    var currentDayOffset by remember { mutableStateOf(0) } // Pour naviguer par tranches de 3 jours
 
-    // Calculer les dates de la semaine
-    val weekDates = remember(currentWeekStart) {
-        (0..6).map { currentWeekStart.plusDays(it.toLong()) }
+    // Calculer les dates de la tranche de 3 jours
+    val visibleDates = remember(currentWeekStart, currentDayOffset) {
+        val startDate = currentWeekStart.plusDays(currentDayOffset.toLong())
+        (0..2).map { startDate.plusDays(it.toLong()) } // 3 jours seulement
     }
 
-    // Filtrer les événements de la semaine courante
-    val weekEvents = remember(events, weekDates) {
-        val dateStrings = weekDates.map { it.toString() }
+    // Filtrer les événements de la tranche de jours visible
+    val visibleEvents = remember(events, visibleDates) {
+        val dateStrings = visibleDates.map { it.toString() }
         events.filter { event ->
-            event.date in dateStrings || (event.date.isEmpty() && weekDates.any {
+            event.date in dateStrings || (event.date.isEmpty() && visibleDates.any {
                 it.dayOfWeek.name == event.day
             })
         }
@@ -177,11 +188,12 @@ fun AgendaScreen(navController: NavController) {
         } else {
             WeeklyAgendaView(
                 modifier = Modifier.padding(innerPadding),
-                events = weekEvents,
-                weekDates = weekDates,
+                events = visibleEvents,
+                weekDates = visibleDates,
                 currentWeekStart = currentWeekStart,
-                onWeekChange = { newWeekStart ->
-                    currentWeekStart = newWeekStart
+                currentDayOffset = currentDayOffset,
+                onWeekChange = { newOffset ->
+                    currentDayOffset = newOffset
                 },
                 onEventClick = { event ->
                     selectedEvent = event
@@ -530,7 +542,8 @@ fun WeeklyAgendaView(
     events: List<Event>,
     weekDates: List<LocalDate>,
     currentWeekStart: LocalDate,
-    onWeekChange: (LocalDate) -> Unit,
+    currentDayOffset: Int = 0,
+    onWeekChange: (Int) -> Unit,
     onEventClick: (Event) -> Unit
 ) {
     val hoursOfDay = (8..20).toList()
@@ -543,9 +556,10 @@ fun WeeklyAgendaView(
         Header(
             weekDates = weekDates,
             currentWeekStart = currentWeekStart,
-            onPreviousWeek = { onWeekChange(currentWeekStart.minusWeeks(1)) },
-            onNextWeek = { onWeekChange(currentWeekStart.plusWeeks(1)) },
-            onCurrentWeek = { onWeekChange(LocalDate.now().with(DayOfWeek.MONDAY)) }
+            currentDayOffset = currentDayOffset,
+            onPreviousDays = { onWeekChange(currentDayOffset - 3) },
+            onNextDays = { onWeekChange(currentDayOffset + 3) },
+            onCurrentDays = { onWeekChange(0) }
         )
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -571,16 +585,16 @@ fun WeeklyAgendaView(
                         } else 0
                     } ?: 0
 
-                val baseHeight = 85.dp
+                val baseHeight = 120.dp // Augmenté de 85dp à 120dp
                 val descriptionHeight = if (maxDescriptionLines > 0) {
-                    (maxDescriptionLines * 16).dp + 8.dp
+                    (maxDescriptionLines * 18).dp + 12.dp // Augmenté l'espacement
                 } else {
                     0.dp
                 }
                 val minHeight = if (hasEvents) {
-                    (baseHeight + descriptionHeight).coerceAtLeast(85.dp).coerceAtMost(200.dp)
+                    (baseHeight + descriptionHeight).coerceAtLeast(120.dp).coerceAtMost(300.dp) // Augmenté les limites
                 } else {
-                    70.dp
+                    90.dp // Augmenté de 70dp à 90dp
                 }
 
                 Row(
@@ -646,7 +660,7 @@ private fun RowScope.DayCell(
                     Color.Transparent
                 }
             )
-            .padding(horizontal = 3.dp, vertical = 3.dp)
+            .padding(horizontal = 5.dp, vertical = 3.dp) // Augmenté le padding horizontal de 3dp à 5dp
             .clickable(enabled = event != null) {
                 if (event != null) {
                     onEventClick(event)
@@ -679,10 +693,10 @@ private fun RowScope.DayCell(
                     .fillMaxWidth()
                     .wrapContentHeight()
                     .shadow(
-                        elevation = 4.dp,
-                        shape = RoundedCornerShape(8.dp)
+                        elevation = 6.dp, // Augmenté l'élévation
+                        shape = RoundedCornerShape(10.dp) // Augmenté le radius
                     )
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -691,22 +705,81 @@ private fun RowScope.DayCell(
                             )
                         )
                     )
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 14.dp), // Augmenté le padding
                 horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp) // Augmenté l'espacement
             ) {
-                Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.2.sp
-                    ),
-                    color = textColor,
-                    textAlign = TextAlign.Start,
-                    fontSize = 12.sp,
-                    lineHeight = 15.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = event.title,
+                        style = MaterialTheme.typography.bodyMedium.copy( // Changé de bodySmall à bodyMedium
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.3.sp
+                        ),
+                        color = textColor,
+                        textAlign = TextAlign.Start,
+                        fontSize = 14.sp, // Augmenté de 12sp à 14sp
+                        lineHeight = 18.sp, // Augmenté le line height
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    if (event.isMeeting) {
+                        Icon(
+                            Icons.Default.Group,
+                            contentDescription = "Réunion",
+                            tint = textColor,
+                            modifier = Modifier.size(16.dp) // Augmenté de 14dp à 16dp
+                        )
+                    }
+                }
+
+                if (event.isMeeting && event.participants.isNotEmpty()) {
+                    Text(
+                        text = "${event.participants.size} participant(s)",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = textColor.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Start
+                    )
+                }
+
+                if (event.isMeeting) {
+                    val timeRange = if (event.endHour > event.hour) {
+                        "${event.hour}:00 - ${event.endHour}:00"
+                    } else {
+                        "${event.hour}:00"
+                    }
+                    
+                    Text(
+                        text = timeRange,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = textColor.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Start
+                    )
+                }
+
+                if (event.isMeeting && event.room.isNotBlank()) {
+                    val roomText = if (event.isVisio) "📹 ${event.room}" else "📍 ${event.room}"
+                    Text(
+                        text = roomText,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = textColor.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Start,
+                        maxLines = 1
+                    )
+                }
 
                 if (event.description.isNotBlank()) {
                     Text(
@@ -732,13 +805,15 @@ private fun RowScope.DayCell(
 private fun Header(
     weekDates: List<LocalDate>,
     currentWeekStart: LocalDate,
-    onPreviousWeek: () -> Unit,
-    onNextWeek: () -> Unit,
-    onCurrentWeek: () -> Unit
+    currentDayOffset: Int = 0,
+    onPreviousDays: () -> Unit,
+    onNextDays: () -> Unit,
+    onCurrentDays: () -> Unit
 ) {
-    val weekEnd = currentWeekStart.plusDays(6)
-    val isCurrentWeek = LocalDate.now().let { today ->
-        today.isAfter(currentWeekStart.minusDays(1)) && today.isBefore(weekEnd.plusDays(1))
+    val startDate = currentWeekStart.plusDays(currentDayOffset.toLong())
+    val endDate = startDate.plusDays(2)
+    val isCurrentDays = LocalDate.now().let { today ->
+        today.isAfter(startDate.minusDays(1)) && today.isBefore(endDate.plusDays(1))
     }
 
     Column(
@@ -753,53 +828,94 @@ private fun Header(
                 )
             )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            IconButton(onClick = onPreviousWeek) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Semaine précédente",
-                    tint = MaterialTheme.colorScheme.primary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${startDate.dayOfMonth} ${startDate.month.name.take(3)} - ${endDate.dayOfMonth} ${endDate.month.name.take(3)}",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    ),
+                    color = MaterialTheme.colorScheme.primary
                 )
-            }
 
-            TextButton(onClick = onCurrentWeek) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (isCurrentWeek) {
-                            "Semaine actuelle"
-                        } else {
-                            "${currentWeekStart.dayOfMonth}/${currentWeekStart.monthValue} - ${weekEnd.dayOfMonth}/${weekEnd.monthValue}/${weekEnd.year}"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onPreviousDays,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "3 jours précédents",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = {
+                            if (!isCurrentDays) onCurrentDays()
                         },
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    if (!isCurrentWeek) {
-                        Text(
-                            text = "Cliquez pour revenir à aujourd'hui",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        enabled = !isCurrentDays,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (isCurrentDays) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                }
+                            )
+                    ) {
+                        Icon(
+                            Icons.Filled.Today,
+                            contentDescription = "Aujourd'hui",
+                            tint = if (isCurrentDays) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = onNextDays,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "3 jours suivants",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
-
-            IconButton(onClick = onNextWeek) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Semaine suivante",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
         }
 
+        // Ligne des jours de la semaine
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -807,7 +923,7 @@ private fun Header(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // ESPACE POUR L'HEURE AJUSTÉ
-            Spacer(modifier = Modifier.width(75.dp)) // Modifié de 60 à 75dp
+            Spacer(modifier = Modifier.width(80.dp)) // Réduit de 90dp à 80dp pour plus d'espace pour les jours
 
             weekDates.forEach { date ->
                 val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
@@ -824,7 +940,7 @@ private fun Header(
                                 else -> Color.Transparent
                             }
                         )
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                        .padding(vertical = 8.dp, horizontal = 8.dp), // Augmenté le padding horizontal de 4dp à 8dp
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -835,25 +951,25 @@ private fun Header(
                                 fontWeight = FontWeight.Bold
                             ),
                             color = if (isToday) {
-                                MaterialTheme.colorScheme.onPrimary
-                            } else if (isWeekend) {
-                                Color(0xFF4A148C) // Violet foncé pour le texte
-                            } else {
                                 MaterialTheme.colorScheme.primary
+                            } else if (isWeekend) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
                             }
                         )
                         Text(
-                            text = date.dayOfMonth.toString(),
+                            text = "${date.dayOfMonth}",
                             textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Medium
                             ),
                             color = if (isToday) {
-                                MaterialTheme.colorScheme.onPrimary
+                                MaterialTheme.colorScheme.primary
                             } else if (isWeekend) {
-                                Color(0xFF4A148C) // Violet foncé
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                             } else {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.colorScheme.onSurfaceVariant
                             }
                         )
                     }
@@ -871,25 +987,26 @@ private fun Header(
 private fun RowScope.HourCell(hour: String) {
     Box(
         modifier = Modifier
-            .width(75.dp) // Élargi de 60 à 75dp pour contenir le texte sur une ligne
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .width(80.dp) // Ajusté de 90dp à 80dp pour correspondre
+            .padding(horizontal = 6.dp, vertical = 6.dp), // Augmenté le padding
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = hour,
             textAlign = TextAlign.Center,
-            maxLines = 1, // Force une seule ligne
-            softWrap = false, // Empêche le retour à la ligne
+            maxLines = 1,
+            softWrap = false,
             style = MaterialTheme.typography.bodySmall.copy(
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp // Augmenté légèrement la taille
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(8.dp)) // Augmenté le radius
                 .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) // Augmenté la visibilité
                 )
-                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .padding(horizontal = 6.dp, vertical = 6.dp) // Augmenté le padding interne
         )
     }
 }
