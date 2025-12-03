@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.google.gms.google.services)
 }
 
+
 android {
     namespace = "com.teamup.app"
     compileSdk = 36
@@ -17,6 +18,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val supabaseUrl: String = project.findProperty("SUPABASE_URL") as? String ?: ""
+        val supabaseKey: String = project.findProperty("SUPABASE_KEY") as? String ?: ""
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
     }
 
     buildTypes {
@@ -40,8 +46,11 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+
 }
+
 
 dependencies {
     // AndroidX Core

@@ -41,24 +41,21 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.storage.Storage
 import android.util.Log
 
+
+private val supabaseClient by lazy {
+    createSupabaseClient(
+        supabaseUrl = BuildConfig.SUPABASE_URL,
+        supabaseKey = BuildConfig.SUPABASE_KEY
+    ) {
+        install(Storage)
+        install(Auth)
+    }
+}
+
+
 /**
  * MainActivity - Point d'entrée de TeamUp avec Jetpack Compose
  */
-
-
-
-    private val supabaseClient by lazy {
-        createSupabaseClient(
-            supabaseUrl = "https://psqwhvxxrlmhcummvlht.supabase.co",
-            supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzcXdodnh4cmxtaGN1bW12bGh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MzIyNjgsImV4cCI6MjA4MDEwODI2OH0.UsVbStaHz4xCQ-dylZou4dXPZBhAIo_y1QMW97gOGr4"
-        ) {
-            //httpEngine = Android.create()
-            install(Storage)
-            install(Auth)
-        }
-    }
-
-
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
