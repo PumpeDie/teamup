@@ -35,6 +35,11 @@ TeamUp est une application mobile permettant de coordonner efficacement le trava
 /teams/{teamId}
   ├─ teamName: String
   ├─ creatorId: String
+  ├─ file-storage
+    ├─ id: String
+    ├─ originalName: String
+    ├─ uploadedAt: int
+    └─ url: String
   ├─ adminIds: [String]
   ├─ memberIds: [String]
   ├─ chatRooms/{chatRoomId}
