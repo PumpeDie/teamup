@@ -38,7 +38,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,8 +89,21 @@ fun DocumentsScreen(
             onClick = { launcher.launch(arrayOf("*/*")) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer // Couleur du contenu (texte + icône)
+            )
         ) {
+            Icon(
+                imageVector = Icons.Default.FileUpload,
+                contentDescription = "Importer",
+                modifier = Modifier.size(ButtonDefaults.IconSize)
+            )
+
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+
+
             Text("Importer un document")
         }
 
@@ -117,23 +134,52 @@ fun DocumentCard(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("Supprimer le document ?") },
-            text = { Text("Cette action est définitive.") },
+
+            // 1. Titre et texte standard
+            title = {
+                Text(
+                    "Supprimer le document ?",
+                    // Optionnel : style du titre
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Text(
+                    "Cette action est définitive.",
+                    // Optionnel : style du texte
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+
+            // 2. Bouton de Confirmation (Action Destructive)
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         showDialog = false
                         viewModel.deleteFile(doc, context)
-                    }
+                    },
+                    // 💡 Utilise les couleurs d'erreur pour l'action de suppression
+                    colors = ButtonDefaults.textButtonColors(
+                        // Le contenu (texte) du bouton est en couleur d'erreur
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
                     Text("Supprimer")
                 }
             },
+
+            // 3. Bouton d'Annulation (Action Neutre)
             dismissButton = {
-                Button(onClick = { showDialog = false }) {
+                TextButton(
+                    onClick = { showDialog = false },
+                    // Utilise les couleurs par défaut (neutres)
+                ) {
                     Text("Annuler")
                 }
-            }
+            },
+
+            // 4. Couleur du conteneur de la boîte de dialogue
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 

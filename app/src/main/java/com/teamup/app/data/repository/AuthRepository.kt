@@ -6,9 +6,10 @@ import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.tasks.await
 
 class AuthRepository(
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val database: FirebaseDatabase = FirebaseDatabase.getInstance()
 ) {
+
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val database: FirebaseDatabase = FirebaseDatabase.getInstance()
 
     suspend fun signIn(email: String, password: String): Result<Unit> {
         return try {

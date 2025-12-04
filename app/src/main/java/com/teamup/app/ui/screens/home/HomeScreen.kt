@@ -380,14 +380,16 @@ fun FeatureListItem(
 
 @Composable
 fun LogoutListItem(navController: NavController) {
+
+    // 💡 État pour contrôler l'affichage de la boîte de dialogue
+    var showDialog by remember { mutableStateOf(false) }
+
     val errorColor = MaterialTheme.colorScheme.error
 
+    // 1. Déclencheur du Dialogue
     Surface(
         onClick = {
-            FirebaseAuth.getInstance().signOut()
-            navController.navigate("login") {
-                popUpTo("home") { inclusive = true }
-            }
+            showDialog = true // Ouvre la boîte de dialogue au clic
         },
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -430,6 +432,55 @@ fun LogoutListItem(navController: NavController) {
             }
         }
     }
+
+    // 2. Boîte de Dialogue de Confirmation (AlertDialog)
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false }, // Fermer si on clique à l'extérieur
+
+            title = {
+                Text(
+                    "Confirmation de déconnexion",
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Text(
+                    "Êtes-vous sûr(e) de vouloir vous déconnecter de cette session ?",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        FirebaseAuth.getInstance().signOut()
+                        navController.navigate("login") {
+                            popUpTo("home") { inclusive = true }
+                        }
+                    },
+
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Déconnexion")
+                }
+            },
+
+
+            dismissButton = {
+                TextButton(
+                    onClick = { showDialog = false }
+                ) {
+                    Text("Annuler")
+                }
+            },
+
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
 }
 
 // --- DATA & THEME ---
@@ -461,7 +512,10 @@ private fun getFeatures(): List<FeatureItem> {
 fun askedGradientColors(): List<Color> {
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     return if (isDark) {
-        listOf(Color(0xFF2D1A46), Color(0xFF1A1A2E))
+        listOf(
+            Color(0xFFF0F0F0), // Gris très clair (simule un fond lumineux)
+            Color(0xFFF8F8F8)  // Gris encore plus clair
+        )
     } else {
         listOf(
             Color(0xFFF3E5F5),

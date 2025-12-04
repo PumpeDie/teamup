@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
+}
+
+val properties = Properties()
+// Charge le fichier local.properties
+val propertiesFile = project.rootProject.file("local.properties")
+if (propertiesFile.exists()) {
+    propertiesFile.inputStream().use { properties.load(it) }
 }
 
 
@@ -19,8 +28,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val supabaseUrl: String = project.findProperty("SUPABASE_URL") as? String ?: ""
-        val supabaseKey: String = project.findProperty("SUPABASE_KEY") as? String ?: ""
+        val supabaseUrl = properties.getProperty("SUPABASE_URL") ?: "https://default.supabase.co"
+        val supabaseKey = properties.getProperty("SUPABASE_KEY") ?: "efault_key"
+
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
     }
@@ -50,6 +60,7 @@ android {
     }
 
 }
+
 
 
 dependencies {
